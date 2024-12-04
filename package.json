@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "build": "echo 'No build step defined'"
+    "build": "echo 'No build step defined'",
+    "start": "node src/index.js"
   },
   "keywords": [],
   "author": "",
@@ -17,5 +18,8 @@
     "express": "^4.21.1",
     "mongoose": "^8.8.3",
     "nodemon": "^3.1.7"
+  },
+  "engines": {
+    "node": "16.x"
   }
 }
