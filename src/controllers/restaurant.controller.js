@@ -1,27 +1,32 @@
-import Restaurant from '../models/restaurant.model.js'
+import Restaurant from '../models/restaurant.model.js';
+const DEFAULT_LOGO_PATH = '/restaurant-default-logo/restaurantdefaultlogo.webp';
 
 //================================================================
 //To create a new restaurant
 //================================================================
 
 export const createRestaurant = async (req, res) => {
-  const { name, logo } = req.body;
-
-  if (!name) {
-    return res.status(400).json({ message: 'Name is required' });
-  }
-
   try {
-    // Check if restaurant already exists
-    const existingRestaurant = await Restaurant.findOne({ name });
+    const { restaurantName } = req.body;
+
+    if (!restaurantName) {
+      return res.status(400).json({ message: 'Name is required' });
+    }
+
+    const existingRestaurant = await Restaurant.findOne({ restaurantName });
     if (existingRestaurant) {
       return res.status(400).json({ message: 'Restaurant already exists' });
     }
 
-    // Create new restaurant
+    let logoPath = DEFAULT_LOGO_PATH;
+
+    if (req.file) {
+      logoPath = req.file.path.replace(/\\/g, '/').replace('public', '');
+    }
+
     const restaurant = new Restaurant({
-      name,
-      logo: logo,
+      restaurantName,
+      logo: logoPath,
       categories: [],
     });
 
@@ -40,8 +45,6 @@ export const createRestaurant = async (req, res) => {
   }
 };
 
-
-
 //================================================================
 // to show all the restaurants
 //================================================================
@@ -55,8 +58,6 @@ export const allRestaurants = async (req, res) => {
     res.status(500).json({ message: 'error fetching restaurants' });
   }
 };
-
-
 
 //================================================================
 // to create categories
@@ -105,8 +106,6 @@ export const createCategory = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
 
 //================================================================
 //create a new dish
@@ -179,7 +178,6 @@ export const createDish = async (req, res) => {
   }
 };
 
-
 //================================================================
 //list of all dishes of a restaurant
 //================================================================
@@ -188,8 +186,6 @@ export const allDishes = async (req, res) => {
   try {
   } catch (error) {}
 };
-
-
 
 //================================================================
 // To search for restaurants
@@ -219,15 +215,12 @@ export const searchRestaurant = async (req, res) => {
     return res.status(200).json({ restaurant });
   } catch (error) {
     console.log('search restaurant controller error: ', error.message);
-    return res
-      .status(500)
-      .json({
-        message: 'Error searching for restaurants',
-        error: error.message,
-      });
+    return res.status(500).json({
+      message: 'Error searching for restaurants',
+      error: error.message,
+    });
   }
 };
-
 
 //================================================================
 // Get total number of restaurants
@@ -238,23 +231,25 @@ export const totalRestaurants = async (req, res) => {
     // Count the total number of restaurants in the collection
     const count = await Restaurant.countDocuments();
     console.log(count);
-    
+
     return res.status(200).json({
       message: 'Total number of restaurants fetched successfully',
       totalRestaurants: count,
     });
   } catch (error) {
     console.error('totalRestaurants error: ', error.message);
-    res.status(500).json({ message: 'Error fetching total restaurants', error: error.message });
+    res
+      .status(500)
+      .json({
+        message: 'Error fetching total restaurants',
+        error: error.message,
+      });
   }
 };
-
-
 
 //================================================================
 //total number of dishes
 //================================================================
-
 
 export const totalDishes = async (req, res) => {
   try {
@@ -277,8 +272,8 @@ export const totalDishes = async (req, res) => {
     });
   } catch (error) {
     console.error('totalDishes error:', error.message);
-    res.status(500).json({ message: 'Error fetching total dishes', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Error fetching total dishes', error: error.message });
   }
 };
-
-

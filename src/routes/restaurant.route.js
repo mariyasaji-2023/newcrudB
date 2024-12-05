@@ -9,10 +9,11 @@ import {
   totalDishes,
   totalRestaurants,
 } from '../controllers/restaurant.controller.js';
+import { uploadRestaurantLogo } from '../middlewares/restaurantLogo.middleware.js';
 
 const routes = express.Router();
 
-routes.post('/createRestaurant', createRestaurant);
+routes.post('/createRestaurant',uploadRestaurantLogo, createRestaurant);
 routes.get('/allRestaurants', allRestaurants);
 routes.put('/createCategory/:restaurantId', createCategory);
 routes.put('/createdish/:categoryId', createDish);

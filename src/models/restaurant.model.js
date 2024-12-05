@@ -92,7 +92,9 @@ const restaurantSchema = new mongoose.Schema(
     },
     logo: {
       type: String,
-      default: '',
+      required: true,
+    },
+    description: {
     },
     categories: [categorySchema], // Array of categories within a restaurant
   },
