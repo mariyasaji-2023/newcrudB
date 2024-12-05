@@ -1,6 +1,8 @@
 import Restaurant from '../models/restaurant.model.js';
 const DEFAULT_LOGO_PATH = '/restaurant-default-logo/restaurantdefaultlogo.webp';
 
+import fs from 'fs/promises'; // For handling file operations
+
 //================================================================
 //To create a new restaurant
 //================================================================
@@ -45,6 +47,68 @@ export const createRestaurant = async (req, res) => {
   }
 };
 
+//================================================================
+//
+//================================================================
+
+export const deleteRestaurant = async (req, res) => {
+  const { restaurantId } = req.params;
+    console.log(restaurantId);
+    
+    const { deleteId } = req.body;
+    console.log(deleteId);
+    
+    if (!deleteId) {
+      return res.status(400).json({ message: 'Delete ID is required' });
+    }
+
+    // Validate ID
+    if (!restaurantId) {
+      return res.status(400).json({ message: 'Restaurant ID is required' });
+    }
+    const secretId = 'delete';
+    
+    if (deleteId !== secretId) {
+      return res.status(400).json({ message: 'Invalid delete ID' });
+    }
+  try {
+    
+
+    // Check if the restaurant exists first
+    const restaurant = await Restaurant.findById(restaurantId);
+    
+    
+    
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    
+
+    // Delete the logo file if it exists
+    if (restaurant.logo && restaurant.logo !== DEFAULT_LOGO_PATH) {
+      try {
+        await fs.unlink(`public${restaurant.logo}`);
+      } catch (err) {
+        console.error('Error deleting logo file:', err.message);
+      }
+    }
+
+    // Delete the restaurant from the database
+    await Restaurant.findByIdAndDelete(restaurantId);
+
+    return res.status(200).json({
+      message: 'Restaurant deleted successfully',
+      restaurantId,
+    });
+  } catch (error) {
+    console.error('Delete restaurant controller error:', error.message);
+    res.status(500).json({
+      message: 'Error deleting restaurant',
+      error: error.message,
+    });
+  }
+};
 //================================================================
 // to show all the restaurants
 //================================================================
@@ -238,12 +302,10 @@ export const totalRestaurants = async (req, res) => {
     });
   } catch (error) {
     console.error('totalRestaurants error: ', error.message);
-    res
-      .status(500)
-      .json({
-        message: 'Error fetching total restaurants',
-        error: error.message,
-      });
+    res.status(500).json({
+      message: 'Error fetching total restaurants',
+      error: error.message,
+    });
   }
 };
 
