@@ -48,42 +48,36 @@ export const createRestaurant = async (req, res) => {
 };
 
 //================================================================
-//
+//Delete a restaurant
 //================================================================
 
 export const deleteRestaurant = async (req, res) => {
   const { restaurantId } = req.params;
-    console.log(restaurantId);
-    
-    const { deleteId } = req.body;
-    console.log(deleteId);
-    
-    if (!deleteId) {
-      return res.status(400).json({ message: 'Delete ID is required' });
-    }
+  console.log(restaurantId);
 
-    // Validate ID
-    if (!restaurantId) {
-      return res.status(400).json({ message: 'Restaurant ID is required' });
-    }
-    const secretId = 'delete';
-    
-    if (deleteId !== secretId) {
-      return res.status(400).json({ message: 'Invalid delete ID' });
-    }
+  const { deleteId } = req.body;
+  console.log(deleteId);
+
+  if (!deleteId) {
+    return res.status(400).json({ message: 'Delete ID is required' });
+  }
+
+  // Validate ID
+  if (!restaurantId) {
+    return res.status(400).json({ message: 'Restaurant ID is required' });
+  }
+  const secretId = 'delete';
+
+  if (deleteId !== secretId) {
+    return res.status(400).json({ message: 'Invalid delete ID' });
+  }
   try {
-    
-
     // Check if the restaurant exists first
     const restaurant = await Restaurant.findById(restaurantId);
-    
-    
-    
+
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
-
-    
 
     // Delete the logo file if it exists
     if (restaurant.logo && restaurant.logo !== DEFAULT_LOGO_PATH) {
@@ -109,6 +103,54 @@ export const deleteRestaurant = async (req, res) => {
     });
   }
 };
+
+//================================================================
+//edit restaurant
+//================================================================
+
+export const editRestaurant = async (req, res) => {
+  try {
+    const { restaurantId } = req.params; // Assuming the restaurant's ID is passed in the URL
+    console.log(restaurantId);
+
+    const { restaurantName } = req.body;
+
+    // Find the restaurant by ID
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Update the restaurant name if provided
+    if (restaurantName) {
+      restaurant.restaurantName = restaurantName;
+    }
+
+    let logoPath = restaurant.logo; // Keep the existing logo if not updated
+
+    // If a new logo is uploaded, update the logo path
+    if (req.file) {
+      logoPath = req.file.path.replace(/\\/g, '/').replace('public', '');
+    }
+
+    restaurant.logo = logoPath;
+
+    // Save the updated restaurant
+    const updatedRestaurant = await restaurant.save();
+
+    return res.status(200).json({
+      message: 'Restaurant updated successfully',
+      restaurant: updatedRestaurant,
+    });
+  } catch (error) {
+    console.error('Edit restaurant controller error:', error.message);
+    res.status(500).json({
+      message: 'Error updating restaurant',
+      error: error.message,
+    });
+  }
+};
+
 //================================================================
 // to show all the restaurants
 //================================================================
@@ -266,9 +308,9 @@ export const searchRestaurant = async (req, res) => {
     // Search by restaurant name, category name, or dish name
     const restaurant = await Restaurant.find({
       $or: [
-        { name: { $regex: query, $options: 'i' } }, // Case-insensitive match on restaurant name
-        { 'categories.name': { $regex: query, $options: 'i' } }, // Case-insensitive match on category name
-        { 'categories.dishes.name': { $regex: query, $options: 'i' } }, // Case-insensitive match on dish name
+        { restaurantName: { $regex: query, $options: 'i' } }, // Case-insensitive match on restaurant name
+        // { 'categories.name': { $regex: query, $options: 'i' } }, // Case-insensitive match on category name
+        // { 'categories.dishes.name': { $regex: query, $options: 'i' } }, // Case-insensitive match on dish name
       ],
     });
 
