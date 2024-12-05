@@ -6,6 +6,7 @@ import {
   createDish,
   createRestaurant,
   deleteRestaurant,
+  editRestaurant,
   searchRestaurant,
   totalDishes,
   totalRestaurants,
@@ -23,5 +24,6 @@ routes.get('/searchRestaurants', searchRestaurant);
 routes.get('/totalRestaurants', totalRestaurants);
 routes.get('/totalDishes', totalDishes)
 routes.delete('/deleteRestaurant/:restaurantId', deleteRestaurant)
+routes.put('/editRestaurant/:restaurantId',uploadRestaurantLogo,editRestaurant)
 
 export default routes;
