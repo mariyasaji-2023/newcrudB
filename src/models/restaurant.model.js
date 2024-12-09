@@ -67,6 +67,19 @@ const dishSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Sub Category
+
+const subCategorySchema = new mongoose.Schema(
+  {
+    subCategoryName: {
+      type: String,
+      required: true,
+    },
+    dishes: [dishSchema],
+  },
+  { timestamps: true }
+);
+
 // Category Schema
 const categorySchema = new mongoose.Schema(
   {
@@ -74,11 +87,14 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    subCategoryName: {
-      type: String,
-      required: false,
+    subCategories: {
+      type: [subCategorySchema], 
+      default: undefined, 
     },
-    dishes: [dishSchema], // Array of dishes under this category
+    dishes: {
+      type: [dishSchema], 
+      default: undefined, 
+    },
   },
   { timestamps: true }
 );
@@ -94,8 +110,7 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    description: {
-    },
+    description: {},
     categories: [categorySchema], // Array of categories within a restaurant
   },
   { timestamps: true }
