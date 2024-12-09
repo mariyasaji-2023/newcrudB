@@ -387,9 +387,45 @@ export const createDish = async (req, res) => {
 //================================================================
 
 export const allDishes = async (req, res) => {
+  const { restaurantId } = req.params;
+
   try {
-  } catch (error) {}
+    // Find the restaurant by ID
+    const restaurant = await Restaurant.findById(restaurantId);
+
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Gather all dishes from categories and subcategories
+    const dishes = [];
+
+    restaurant.categories.forEach((category) => {
+      // Add dishes directly in the category
+      if (category.dishes) {
+        dishes.push(...category.dishes);
+      }
+
+      // Add dishes from subcategories
+      if (category.subCategories) {
+        category.subCategories.forEach((subCategory) => {
+          if (subCategory.dishes) {
+            dishes.push(...subCategory.dishes);
+          }
+        });
+      }
+    });
+
+    res.status(200).json({
+      message: 'Dishes fetched successfully',
+      dishes,
+    });
+  } catch (error) {
+    console.error('Error in allDishes:', error.message);
+    res.status(500).json({ error: 'Server error' });
+  }
 };
+
 
 //================================================================
 // To search for restaurants
