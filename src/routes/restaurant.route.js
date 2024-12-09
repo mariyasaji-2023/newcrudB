@@ -5,8 +5,10 @@ import {
   createCategory,
   createDish,
   createRestaurant,
+  createSubCategory,
   deleteRestaurant,
   editRestaurant,
+  searchDish,
   searchRestaurant,
   totalDishes,
   totalRestaurants,
@@ -15,15 +17,19 @@ import { uploadRestaurantLogo } from '../middlewares/restaurantLogo.middleware.j
 
 const routes = express.Router();
 
-routes.post('/createRestaurant',uploadRestaurantLogo, createRestaurant);
-routes.get('/allRestaurants', allRestaurants);
-routes.put('/createCategory/:restaurantId', createCategory);
-routes.put('/createdish/:categoryId', createDish);
-routes.get('/allDishes/:restaurantId', allDishes);
-routes.get('/searchRestaurants', searchRestaurant);
-routes.get('/totalRestaurants', totalRestaurants);
-routes.get('/totalDishes', totalDishes)
-routes.delete('/deleteRestaurant/:restaurantId', deleteRestaurant)
-routes.put('/editRestaurant/:restaurantId',uploadRestaurantLogo,editRestaurant)
+// Route Definitions in Alphabetical Order
+routes.get('/allDishes/:restaurantId', allDishes); // Get all dishes for a restaurant
+routes.get('/allRestaurants', allRestaurants); // Get all restaurants
+routes.put('/createCategory/:restaurantId', createCategory); // Create a new category in a restaurant
+routes.put('/createDish/:categoryId', createDish ); // Create a dish in a category
+routes.put('/createDish/:categoryId/:subCategoryId', createDish);  // Route for creating a dish in a subcategory
+routes.post('/createRestaurant', uploadRestaurantLogo, createRestaurant); // Create a new restaurant
+routes.put('/createSubcategory/:restaurantId/:categoryId',createSubCategory); // Create a subcategory within a category
+routes.delete('/deleteRestaurant/:restaurantId', deleteRestaurant); // Delete a restaurant
+routes.put('/editRestaurant/:restaurantId', uploadRestaurantLogo, editRestaurant); // Edit restaurant details
+routes.get('/searchRestaurants', searchRestaurant); // Search for restaurants
+routes.get('/totalDishes', totalDishes); // Get the total number of dishes
+routes.get('/totalRestaurants', totalRestaurants); // Get the total number of restaurants
+routes.get('/searchDish/:restaurantId', searchDish);
 
 export default routes;

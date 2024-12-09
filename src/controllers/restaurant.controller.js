@@ -170,13 +170,14 @@ export const allRestaurants = async (req, res) => {
 //================================================================
 
 export const createCategory = async (req, res) => {
+
   const { restaurantId } = req.params;
   console.log(restaurantId);
 
-  const { name } = req.body;
-  console.log(name);
+  const { categoryName } = req.body;
+  console.log(categoryName);
 
-  if (!name) {
+  if (!categoryName) {
     return res.status(400).json({ message: 'Category name is required' });
   }
 
@@ -190,7 +191,7 @@ export const createCategory = async (req, res) => {
 
     // Check if the category name already exists in the restaurant
     const categoryExists = restaurant.categories.some(
-      (category) => category.name === name
+      (category) => category.categoryName === categoryName
     );
 
     if (categoryExists) {
@@ -198,7 +199,7 @@ export const createCategory = async (req, res) => {
     }
 
     // Add the new category
-    const newCategory = { name, dishes: [] };
+    const newCategory = { categoryName, dishes: [] };
     restaurant.categories.push(newCategory);
 
     // Save the updated restaurant
@@ -208,39 +209,107 @@ export const createCategory = async (req, res) => {
       message: 'Category saved successfully',
       categories: restaurant.categories,
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+   } catch (error) {
+    // Handle errors and respond with a generic server error message
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+
+//================================================================
+//edit category
+//================================================================
+
+export const editCategory = async (req, res) => {
+  try {
+    
+  } catch (error) {
+    
+  }
+}
+
+///================================================================
+//create sybcategories
+//=================================================================
+
+export const createSubCategory = async (req, res) => {
+  try {
+    const { restaurantId, categoryId } = req.params;
+    const { subCategoryName } = req.body;
+
+    // Validate inputs
+    if (!subCategoryName) {
+      return res.status(400).json({ message: 'Subcategory name is required' });
+    }
+
+    // Find the restaurant by ID
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Find the specific category
+    const category = restaurant.categories.id(categoryId);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    // Initialize subCategories if it doesn't exist
+    if (!category.subCategories) {
+      category.subCategories = [];
+    }
+
+    // Check if subcategory already exists
+    const subCategoryExists = category.subCategories.some(
+      (subCategory) => subCategory.subCategoryName === subCategoryName
+    );
+    if (subCategoryExists) {
+      return res.status(400).json({ message: 'Subcategory already exists' });
+    }
+
+    // Create a new subcategory
+    const newSubCategory = {
+      subCategoryName,
+      dishes: [], // Initialize with an empty dishes array
+    };
+
+    // Add the new subcategory to the category
+    category.subCategories.push(newSubCategory);
+
+    // Save the updated restaurant document
+    await restaurant.save();
+
+    res.status(201).json({
+      message: 'Subcategory created successfully',
+      subCategory: category.subCategories[category.subCategories.length - 1], // Return the newly added subcategory
+    });
+  } catch (error) {
+    console.error('Error in createSubCategory:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 
 //================================================================
 //create a new dish
 //================================================================
 
 export const createDish = async (req, res) => {
-  const { categoryId } = req.params;
-  console.log(categoryId);
+  const { categoryId, subCategoryId } = req.params;
   const {
-    name,
-    servingInfo: { size, unit, equivalentTo },
-    nutritionFacts: { calories, totalFat, protein },
+    dishName,
+    description,
+    servingInfo: { size, unit },
+    nutritionFacts: { calories, protein, carbs, totalFat },
   } = req.body;
-  console.log(name);
 
   // Validate required fields
-  if (
-    !name ||
-    !size ||
-    !unit ||
-    !equivalentTo ||
-    !calories ||
-    !totalFat ||
-    !protein
-  ) {
+  if (!dishName || !size || !unit || !calories || !protein || !carbs || !totalFat) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
   try {
+    // Find the restaurant containing the category
     const restaurant = await Restaurant.findOne({
       'categories._id': categoryId,
     });
@@ -249,49 +318,114 @@ export const createDish = async (req, res) => {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
 
-    const category = restaurant.categories.find(
-      (cat) => cat._id.toString() === categoryId
-    );
-
+    // Find the specific category
+    const category = restaurant.categories.id(categoryId);
     if (!category) {
       return res.status(404).json({ message: 'Category not found' });
     }
 
-    const dishExists = category.dishes.some((dish) => dish.name === name);
+    let target = category;
+
+    // If subCategoryId is provided, find the subcategory
+    if (subCategoryId) {
+      const subCategory = category.subCategories.id(subCategoryId);
+      if (!subCategory) {
+        return res.status(404).json({ message: 'Subcategory not found' });
+      }
+      target = subCategory;
+    }
+
+    // Initialize dishes array if not present
+    if (!target.dishes) {
+      target.dishes = [];
+    }
+
+    // Check if the dish with the same name and serving info already exists
+    const dishExists = target.dishes.some(
+      (dish) =>
+        dish.dishName === dishName &&
+        dish.servingInfo.size === size &&
+        dish.servingInfo.unit === unit
+    );
 
     if (dishExists) {
-      return res.status(400).json({ message: 'Dish already exists' });
+      return res.status(400).json({ message: 'Dish with the same name and serving info already exists' });
     }
 
     // Create the new dish
     const newDish = {
-      name,
-      servingInfo: { size, unit, equivalentTo },
-      nutritionFacts: { calories, totalFat, protein },
+      dishName,
+      description,
+      servingInfo: { size, unit },
+      nutritionFacts: {
+        calories: { value: calories, unit: 'kcl' },
+        protein: { value: protein, unit: 'g' },
+        carbs: { value: carbs, unit: 'g' },
+        totalFat: { value: totalFat, unit: 'g' },
+      },
     };
 
-    category.dishes.push(newDish);
+    // Add the dish to the target (category or subcategory)
+    target.dishes.push(newDish);
 
-    // Save the restaurant with the new dish in the category
+    // Save the updated restaurant document
     await restaurant.save();
 
     res.status(201).json({
       message: 'Dish created successfully',
-      category,
+      dish: target.dishes[target.dishes.length - 1], // Return the newly added dish
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error in createDish:', error.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 //================================================================
 //list of all dishes of a restaurant
 //================================================================
 
 export const allDishes = async (req, res) => {
+  const { restaurantId } = req.params;
+
   try {
-  } catch (error) {}
+    // Find the restaurant by ID
+    const restaurant = await Restaurant.findById(restaurantId);
+
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Gather all dishes from categories and subcategories
+    const dishes = [];
+
+    restaurant.categories.forEach((category) => {
+      // Add dishes directly in the category
+      if (category.dishes) {
+        dishes.push(...category.dishes);
+      }
+
+      // Add dishes from subcategories
+      if (category.subCategories) {
+        category.subCategories.forEach((subCategory) => {
+          if (subCategory.dishes) {
+            dishes.push(...subCategory.dishes);
+          }
+        });
+      }
+    });
+
+    res.status(200).json({
+      message: 'Dishes fetched successfully',
+      dishes,
+    });
+  } catch (error) {
+    console.error('Error in allDishes:', error.message);
+    res.status(500).json({ error: 'Server error' });
+  }
 };
+
 
 //================================================================
 // To search for restaurants
@@ -323,6 +457,156 @@ export const searchRestaurant = async (req, res) => {
     console.log('search restaurant controller error: ', error.message);
     return res.status(500).json({
       message: 'Error searching for restaurants',
+      error: error.message,
+    });
+  }
+};
+
+//================================================================
+//search dihes
+//================================================================
+
+// export const searchDish = async (req, res) => {
+//   const { restaurantId } = req.params;  // restaurantId passed as URL parameter
+//   const { query } = req.query;  // search query passed by the user
+
+//   if (!query) {
+//     return res.status(400).json({ message: 'Search query is required' });
+//   }
+
+//   try {
+//     // Find the restaurant by its ID
+//     const restaurant = await Restaurant.findById(restaurantId);
+
+//     if (!restaurant) {
+//       return res.status(404).json({ message: 'Restaurant not found' });
+//     }
+
+//     // Search inside the restaurant's categories, subcategories, and dishes
+//     const result = restaurant.categories.reduce((acc, category) => {
+//       // Search in category name
+//       if (category.categoryName.toLowerCase().includes(query.toLowerCase())) {
+//         acc.push({ categoryName: category.categoryName, matches: category.dishes });
+//       }
+
+//       category.subCategories.forEach((subCategory) => {
+//         // Search in subcategory name
+//         if (subCategory.subCategoryName.toLowerCase().includes(query.toLowerCase())) {
+//           acc.push({
+//             categoryName: category.categoryName,
+//             subCategoryName: subCategory.subCategoryName,
+//             matches: subCategory.dishes,
+//           });
+//         }
+
+//         subCategory.dishes.forEach((dish) => {
+//           // Search in dish name
+//           if (dish.dishName.toLowerCase().includes(query.toLowerCase())) {
+//             acc.push({
+//               categoryName: category.categoryName,
+//               subCategoryName: subCategory.subCategoryName,
+//               dishName: dish.dishName,
+//               description: dish.description,
+//               servingInfo: dish.servingInfo,
+//               nutritionFacts: dish.nutritionFacts,
+//             });
+//           }
+//         });
+//       });
+
+//       return acc;
+//     }, []);
+
+//     if (result.length === 0) {
+//       return res.status(404).json({ message: 'No matching dishes found in this restaurant' });
+//     }
+
+//     return res.status(200).json({ results: result });
+//   } catch (error) {
+//     console.error('Error searching dishes in restaurant:', error.message);
+//     return res.status(500).json({
+//       message: 'Error searching for dishes in restaurant',
+//       error: error.message,
+//     });
+//   }
+// };
+
+export const searchDish = async (req, res) => {
+  const { restaurantId } = req.params;  // restaurantId passed as URL parameter
+  const { query } = req.query;  // search query passed by the user
+
+  if (!query) {
+    return res.status(400).json({ message: 'Search query is required' });
+  }
+
+  try {
+    // Find the restaurant by its ID
+    const restaurant = await Restaurant.findById(restaurantId);
+
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Search inside the restaurant's categories, subcategories, and dishes
+    const result = restaurant.categories.reduce((acc, category) => {
+      // Search in category name
+      if (category.categoryName.toLowerCase().includes(query.toLowerCase())) {
+        acc.push({ categoryName: category.categoryName, matches: category.dishes });
+      }
+
+      // Check if subCategories exist and iterate through them
+      category.subCategories?.forEach((subCategory) => {
+        // Search in subcategory name
+        if (subCategory.subCategoryName.toLowerCase().includes(query.toLowerCase())) {
+          acc.push({
+            categoryName: category.categoryName,
+            subCategoryName: subCategory.subCategoryName,
+            matches: subCategory.dishes,
+          });
+        }
+
+        // Check if dishes exist in the subcategory and search them
+        subCategory.dishes?.forEach((dish) => {
+          // Search in dish name
+          if (dish.dishName.toLowerCase().includes(query.toLowerCase())) {
+            acc.push({
+              categoryName: category.categoryName,
+              subCategoryName: subCategory.subCategoryName,
+              dishName: dish.dishName,
+              description: dish.description,
+              servingInfo: dish.servingInfo,
+              nutritionFacts: dish.nutritionFacts,
+            });
+          }
+        });
+      });
+
+      // Check if dishes exist in the category and search them
+      category.dishes?.forEach((dish) => {
+        // Search in dish name
+        if (dish.dishName.toLowerCase().includes(query.toLowerCase())) {
+          acc.push({
+            categoryName: category.categoryName,
+            dishName: dish.dishName,
+            description: dish.description,
+            servingInfo: dish.servingInfo,
+            nutritionFacts: dish.nutritionFacts,
+          });
+        }
+      });
+
+      return acc;
+    }, []);
+
+    if (result.length === 0) {
+      return res.status(404).json({ message: 'No matching dishes found in this restaurant' });
+    }
+
+    return res.status(200).json({ results: result });
+  } catch (error) {
+    console.error('Error searching dishes in restaurant:', error.message);
+    return res.status(500).json({
+      message: 'Error searching for dishes in restaurant',
       error: error.message,
     });
   }
