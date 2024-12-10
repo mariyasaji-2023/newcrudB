@@ -246,7 +246,8 @@ export const editCategory = async (req, res) => {
     // Check if another category already has the new name
     const nameExists = restaurant.categories.some(
       (cat) =>
-        cat._id.toString() !== categoryId && cat.categoryName === newCategoryName
+        cat._id.toString() !== categoryId &&
+        cat.categoryName === newCategoryName
     );
 
     if (nameExists) {
@@ -267,7 +268,6 @@ export const editCategory = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
 
 ///================================================================
 //create sybcategories
@@ -397,11 +397,9 @@ export const createDish = async (req, res) => {
     );
 
     if (dishExists) {
-      return res
-        .status(400)
-        .json({
-          message: 'Dish with the same name and serving info already exists',
-        });
+      return res.status(400).json({
+        message: 'Dish with the same name and serving info already exists',
+      });
     }
 
     // Create the new dish
@@ -705,9 +703,22 @@ export const totalDishes = async (req, res) => {
 
     // Calculate the total number of dishes
     let totalDishes = 0;
+
     restaurants.forEach((restaurant) => {
       restaurant.categories.forEach((category) => {
-        totalDishes += category.dishes.length;
+        // Count dishes in the category
+        if (category.dishes) {
+          totalDishes += category.dishes.length;
+        }
+
+        // Count dishes in the subcategories
+        if (category.subCategories) {
+          category.subCategories.forEach((subCategory) => {
+            if (subCategory.dishes) {
+              totalDishes += subCategory.dishes.length;
+            }
+          });
+        }
       });
     });
 
@@ -715,12 +726,11 @@ export const totalDishes = async (req, res) => {
 
     return res.status(200).json({
       message: 'Total number of dishes fetched successfully',
-      totalDishes: totalDishes,
+      totalDishes,
     });
   } catch (error) {
-    console.error('totalDishes error:', error.message);
-    res
-      .status(500)
-      .json({ message: 'Error fetching total dishes', error: error.message });
+    console.error('Error in totalDishes:', error.message);
+    res.status(500).json({ message: 'Error fetching total dishes', error: error.message });
   }
 };
+
