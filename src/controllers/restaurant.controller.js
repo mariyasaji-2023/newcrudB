@@ -170,7 +170,6 @@ export const allRestaurants = async (req, res) => {
 //================================================================
 
 export const createCategory = async (req, res) => {
-
   const { restaurantId } = req.params;
   console.log(restaurantId);
 
@@ -209,24 +208,66 @@ export const createCategory = async (req, res) => {
       message: 'Category saved successfully',
       categories: restaurant.categories,
     });
-   } catch (error) {
+  } catch (error) {
     // Handle errors and respond with a generic server error message
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
 
 //================================================================
 //edit category
 //================================================================
 
 export const editCategory = async (req, res) => {
-  try {
-    
-  } catch (error) {
-    
+  const { restaurantId, categoryId } = req.params; // Assuming categoryId is passed in params
+  const { newCategoryName } = req.body;
+
+  if (!newCategoryName) {
+    return res.status(400).json({ message: 'New category name is required' });
   }
-}
+
+  try {
+    // Fetch the restaurant by ID
+    const restaurant = await Restaurant.findById(restaurantId);
+
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Locate the category by ID
+    const category = restaurant.categories.find(
+      (cat) => cat._id.toString() === categoryId
+    );
+
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    // Check if another category already has the new name
+    const nameExists = restaurant.categories.some(
+      (cat) =>
+        cat._id.toString() !== categoryId && cat.categoryName === newCategoryName
+    );
+
+    if (nameExists) {
+      return res.status(400).json({ message: 'Category name already exists' });
+    }
+
+    // Update the category's name
+    category.categoryName = newCategoryName;
+
+    // Save the restaurant with the updated category
+    await restaurant.save();
+
+    res.status(200).json({
+      message: 'Category updated successfully',
+      categories: restaurant.categories,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 
 ///================================================================
 //create sybcategories
@@ -289,7 +330,6 @@ export const createSubCategory = async (req, res) => {
   }
 };
 
-
 //================================================================
 //create a new dish
 //================================================================
@@ -304,7 +344,15 @@ export const createDish = async (req, res) => {
   } = req.body;
 
   // Validate required fields
-  if (!dishName || !size || !unit || !calories || !protein || !carbs || !totalFat) {
+  if (
+    !dishName ||
+    !size ||
+    !unit ||
+    !calories ||
+    !protein ||
+    !carbs ||
+    !totalFat
+  ) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
@@ -349,7 +397,11 @@ export const createDish = async (req, res) => {
     );
 
     if (dishExists) {
-      return res.status(400).json({ message: 'Dish with the same name and serving info already exists' });
+      return res
+        .status(400)
+        .json({
+          message: 'Dish with the same name and serving info already exists',
+        });
     }
 
     // Create the new dish
@@ -380,7 +432,6 @@ export const createDish = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
-
 
 //================================================================
 //list of all dishes of a restaurant
@@ -425,7 +476,6 @@ export const allDishes = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
-
 
 //================================================================
 // To search for restaurants
@@ -532,8 +582,8 @@ export const searchRestaurant = async (req, res) => {
 // };
 
 export const searchDish = async (req, res) => {
-  const { restaurantId } = req.params;  // restaurantId passed as URL parameter
-  const { query } = req.query;  // search query passed by the user
+  const { restaurantId } = req.params; // restaurantId passed as URL parameter
+  const { query } = req.query; // search query passed by the user
 
   if (!query) {
     return res.status(400).json({ message: 'Search query is required' });
@@ -551,13 +601,20 @@ export const searchDish = async (req, res) => {
     const result = restaurant.categories.reduce((acc, category) => {
       // Search in category name
       if (category.categoryName.toLowerCase().includes(query.toLowerCase())) {
-        acc.push({ categoryName: category.categoryName, matches: category.dishes });
+        acc.push({
+          categoryName: category.categoryName,
+          matches: category.dishes,
+        });
       }
 
       // Check if subCategories exist and iterate through them
       category.subCategories?.forEach((subCategory) => {
         // Search in subcategory name
-        if (subCategory.subCategoryName.toLowerCase().includes(query.toLowerCase())) {
+        if (
+          subCategory.subCategoryName
+            .toLowerCase()
+            .includes(query.toLowerCase())
+        ) {
           acc.push({
             categoryName: category.categoryName,
             subCategoryName: subCategory.subCategoryName,
@@ -599,7 +656,9 @@ export const searchDish = async (req, res) => {
     }, []);
 
     if (result.length === 0) {
-      return res.status(404).json({ message: 'No matching dishes found in this restaurant' });
+      return res
+        .status(404)
+        .json({ message: 'No matching dishes found in this restaurant' });
     }
 
     return res.status(200).json({ results: result });
