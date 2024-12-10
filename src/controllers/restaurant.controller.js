@@ -215,6 +215,31 @@ export const createCategory = async (req, res) => {
 };
 
 //================================================================
+//all categories inside a retaurant
+//================================================================
+
+export const allCategories = async (req, res) => {
+  const { restaurantId } = req.params; // Assuming restaurantId is passed in params
+
+  try {
+    // Fetch the restaurant by ID
+    const restaurant = await Restaurant.findById(restaurantId);
+
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Return the categories associated with the restaurant
+    res.status(200).json({
+      message: 'Categories fetched successfully',
+      categories: restaurant.categories,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+//================================================================
 //edit category
 //================================================================
 
@@ -500,8 +525,27 @@ export const allDishes = async (req, res) => {
     }
 
     // Initialize the dishes array
-    const dishes = [];
 
+    const categories = [];
+
+    restaurant.categories.forEach((category) => {
+      // Check if category and subCategories exist before mapping
+      const subCategories = category.subCategories && Array.isArray(category.subCategories) 
+        ? category.subCategories.map((subCategory) => ({
+            subCategoryId: subCategory._id,
+            subCategoryName: subCategory.subCategoryName,
+          }))
+        : []; // Default to empty array if no subcategories
+    
+      categories.push({
+        categoryId: category._id,
+        categoryName: category.categoryName,
+        subCategories: subCategories
+      });
+    });
+    console.log(categories);
+
+    const dishes = [];
     // Loop through restaurant categories and subcategories to gather dishes
     restaurant.categories.forEach((category) => {
       // Add dishes directly in the category
@@ -538,15 +582,14 @@ export const allDishes = async (req, res) => {
 
     // If no dishes found, send an appropriate message
     if (dishes.length === 0) {
-      return res
-        .status(200)
-        .json({
-          message: 'No dishes found for this restaurant',
-          restaurant,
-          dishes,
-        });
+      return res.status(200).json({
+        message: 'No dishes found for this restaurant',
+        restaurant,
+        dishes,
+      });
     }
-    console.log(dishes);
+
+    console.log(categories);
 
     // Return the fetched dishes along with restaurant info
     res.status(200).json({
@@ -556,6 +599,7 @@ export const allDishes = async (req, res) => {
         name: restaurant.restaurantName,
       },
       dishes,
+      categories,
     });
   } catch (error) {
     // Log the error for debugging purposes
