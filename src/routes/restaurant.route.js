@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  allCategories,
   allDishes,
   allRestaurants,
   createCategory,
@@ -20,6 +21,7 @@ const routes = express.Router();
 // Route Definitions in Alphabetical Order
 routes.get('/allDishes/:restaurantId', allDishes); // Get all dishes for a restaurant
 routes.get('/allRestaurants', allRestaurants); // Get all restaurants
+routes.get('/allCategories/:restaurantId', allCategories)
 routes.put('/createCategory/:restaurantId', createCategory); // Create a new category in a restaurant
 routes.put('/createDish/:categoryId', createDish ); // Create a dish in a category
 routes.put('/createDish/:categoryId/:subCategoryId', createDish);  // Route for creating a dish in a subcategory
