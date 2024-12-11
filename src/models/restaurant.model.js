@@ -1,5 +1,64 @@
 import mongoose from 'mongoose';
 
+//serving info schema
+const servingInfoShema = new mongoose.Schema(
+  {
+    servingInfo: {
+      size: {
+        type: String,
+        required: true,
+      },
+      price: {
+        type: Number,
+        required: false,
+      },
+      nutritionFacts: {
+        calories: {
+          value: {
+            type: Number,
+            required: true,
+          },
+          unit: {
+            type: String,
+            default: 'kcl',
+          },
+        },
+        protein: {
+          value: {
+            type: Number,
+            required: true,
+          },
+          unit: {
+            type: String,
+            default: 'g',
+          },
+        },
+        carbs: {
+          value: {
+            type: Number,
+            required: true,
+          },
+          unit: {
+            type: String,
+            default: 'g',
+          },
+        },
+        totalFat: {
+          value: {
+            type: Number,
+            required: true,
+          },
+          unit: {
+            type: String,
+            default: 'g',
+          },
+        },
+      },
+    },
+  },
+  { timestamps: true }
+);
+
 // Dish Schema
 const dishSchema = new mongoose.Schema(
   {
@@ -11,58 +70,7 @@ const dishSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
-    servingInfo: {
-      size: {
-        type: Number,
-        required: true,
-      },
-      unit: {
-        type: String,
-        required: true,
-      },
-    },
-    nutritionFacts: {
-      calories: {
-        value: {
-          type: Number,
-          required: true,
-        },
-        unit: {
-          type: String,
-          default: 'kcl',
-        },
-      },
-      protein: {
-        value: {
-          type: Number,
-          required: true,
-        },
-        unit: {
-          type: String,
-          default: 'g',
-        },
-      },
-      carbs: {
-        value: {
-          type: Number,
-          required: true,
-        },
-        unit: {
-          type: String,
-          default: 'g',
-        },
-      },
-      totalFat: {
-        value: {
-          type: Number,
-          required: true,
-        },
-        unit: {
-          type: String,
-          default: 'g',
-        },
-      },
-    },
+    servingInfos : [servingInfoShema]
   },
   { timestamps: true }
 );
@@ -88,12 +96,12 @@ const categorySchema = new mongoose.Schema(
       required: true,
     },
     subCategories: {
-      type: [subCategorySchema], 
-      default: undefined, 
+      type: [subCategorySchema],
+      default: undefined,
     },
     dishes: {
-      type: [dishSchema], 
-      default: undefined, 
+      type: [dishSchema],
+      default: undefined,
     },
   },
   { timestamps: true }

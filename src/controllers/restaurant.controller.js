@@ -412,21 +412,12 @@ export const createDish = async (req, res) => {
   const {
     dishName,
     description,
-    servingInfo: { size, unit },
-    nutritionFacts: { calories, protein, carbs, totalFat },
+    servingInfos, // Array of serving info objects
   } = req.body;
 
   // Validate required fields
-  if (
-    !dishName ||
-    !size ||
-    !unit ||
-    !calories ||
-    !protein ||
-    !carbs ||
-    !totalFat
-  ) {
-    return res.status(400).json({ message: 'All fields are required' });
+  if (!dishName || !servingInfos || !Array.isArray(servingInfos) || servingInfos.length === 0) {
+    return res.status(400).json({ message: 'Dish name and serving information are required' });
   }
 
   try {
@@ -461,17 +452,12 @@ export const createDish = async (req, res) => {
       target.dishes = [];
     }
 
-    // Check if the dish with the same name and serving info already exists
-    const dishExists = target.dishes.some(
-      (dish) =>
-        dish.dishName === dishName &&
-        dish.servingInfo.size === size &&
-        dish.servingInfo.unit === unit
-    );
+    // Check if a dish with the same name already exists
+    const dishExists = target.dishes.some((dish) => dish.dishName === dishName);
 
     if (dishExists) {
       return res.status(400).json({
-        message: 'Dish with the same name and serving info already exists',
+        message: 'Dish with the same name already exists',
       });
     }
 
@@ -479,13 +465,18 @@ export const createDish = async (req, res) => {
     const newDish = {
       dishName,
       description,
-      servingInfo: { size, unit },
-      nutritionFacts: {
-        calories: { value: calories, unit: 'kcl' },
-        protein: { value: protein, unit: 'g' },
-        carbs: { value: carbs, unit: 'g' },
-        totalFat: { value: totalFat, unit: 'g' },
-      },
+      servingInfos: servingInfos.map((info) => ({
+        servingInfo: {
+          size: info.size,
+          price: info.price,
+          nutritionFacts: {
+            calories: { value: info.nutritionFacts.calories, unit: 'kcl' },
+            protein: { value: info.nutritionFacts.protein, unit: 'g' },
+            carbs: { value: info.nutritionFacts.carbs, unit: 'g' },
+            totalFat: { value: info.nutritionFacts.totalFat, unit: 'g' },
+          },
+        },
+      })),
     };
 
     // Add the dish to the target (category or subcategory)
@@ -503,6 +494,8 @@ export const createDish = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+
 
 //================================================================
 //list of all dishes of a restaurant
@@ -606,6 +599,71 @@ export const allDishes = async (req, res) => {
 //================================================================
 // To search for restaurants
 //================================================================
+
+export const deleteDish = async (req, res) => {
+  const { restaurantId, categoryId, subCategoryId } = req.params;
+  const { dishId, deleteId } = req.body;
+
+  // Validate deleteId
+  const secretId = 'delete';
+  if (!deleteId || deleteId !== secretId) {
+    return res.status(400).json({ message: 'Invalid delete ID' });
+  }
+
+  // Validate dishId
+  if (!dishId) {
+    return res.status(400).json({ message: 'Dish ID is required' });
+  }
+
+  try {
+    // Find the restaurant by restaurantId
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Find the category within the restaurant
+    const category = restaurant.categories.id(categoryId);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    let target = category;
+
+    // If subCategoryId is provided, find the subcategory
+    if (subCategoryId) {
+      const subCategory = category.subCategories.id(subCategoryId);
+      if (!subCategory) {
+        return res.status(404).json({ message: 'Subcategory not found' });
+      }
+      target = subCategory;
+    }
+
+    // Find the dish within the target (category or subcategory)
+    const dish = target.dishes.id(dishId);
+    if (!dish) {
+      return res.status(404).json({ message: 'Dish not found' });
+    }
+
+    // Remove the dish from the target (category or subcategory)
+    target.dishes.pull(dishId);
+
+    // Save the updated restaurant document
+    await restaurant.save();
+
+    return res.status(200).json({
+      message: 'Dish deleted successfully',
+      dishId,
+    });
+  } catch (error) {
+    console.error('Delete dish controller error:', error.message);
+    res.status(500).json({
+      message: 'Error deleting dish',
+      error: error.message,
+    });
+  }
+};
+
 
 export const searchRestaurant = async (req, res) => {
   const { query } = req.query; // query parameter passed by the user
