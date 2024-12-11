@@ -519,36 +519,33 @@ export const allDishes = async (req, res) => {
   try {
     // Find the restaurant by ID
     const restaurant = await Restaurant.findById(restaurantId);
+    console.log('Restaurant object:', restaurant);
+    console.log('Restaurant Name:', restaurant.restaurantName);
 
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
 
-    // Initialize the dishes array
-
     const categories = [];
 
     restaurant.categories.forEach((category) => {
-      // Check if category and subCategories exist before mapping
-      const subCategories = category.subCategories && Array.isArray(category.subCategories) 
-        ? category.subCategories.map((subCategory) => ({
-            subCategoryId: subCategory._id,
-            subCategoryName: subCategory.subCategoryName,
-          }))
-        : []; // Default to empty array if no subcategories
-    
+      const subCategories =
+        category.subCategories && Array.isArray(category.subCategories)
+          ? category.subCategories.map((subCategory) => ({
+              subCategoryId: subCategory._id,
+              subCategoryName: subCategory.subCategoryName,
+            }))
+          : [];
+
       categories.push({
         categoryId: category._id,
         categoryName: category.categoryName,
-        subCategories: subCategories
+        subCategories: subCategories,
       });
     });
-    console.log(categories);
 
     const dishes = [];
-    // Loop through restaurant categories and subcategories to gather dishes
     restaurant.categories.forEach((category) => {
-      // Add dishes directly in the category
       if (category?.dishes && Array.isArray(category.dishes)) {
         category.dishes.forEach((dish) => {
           dishes.push({
@@ -556,12 +553,11 @@ export const allDishes = async (req, res) => {
             restaurantName: restaurant.restaurantName,
             categoryId: category._id,
             categoryName: category.categoryName,
-            subCategoryName: null, // No subcategory for these dishes
+            subCategoryName: null,
           });
         });
       }
 
-      // Add dishes from subcategories
       if (category?.subCategories && Array.isArray(category.subCategories)) {
         category.subCategories.forEach((subCategory) => {
           if (subCategory?.dishes && Array.isArray(subCategory.dishes)) {
@@ -580,36 +576,33 @@ export const allDishes = async (req, res) => {
       }
     });
 
-    // If no dishes found, send an appropriate message
     if (dishes.length === 0) {
       return res.status(200).json({
         message: 'No dishes found for this restaurant',
-        restaurant,
+        restaurant: {
+          id: restaurant._id,
+          name: restaurant.restaurantName, // Explicitly set name here
+        },
         dishes,
+        categories,
       });
     }
-
-    console.log(categories);
 
     // Return the fetched dishes along with restaurant info
     res.status(200).json({
       message: 'Dishes fetched successfully',
       restaurant: {
         id: restaurant._id,
-        name: restaurant.restaurantName,
+        name: restaurant.restaurantName, // Explicitly set name here
       },
       dishes,
       categories,
     });
   } catch (error) {
-    // Log the error for debugging purposes
     console.error('Error fetching dishes:', error.message);
-
-    // Return a server error response
     res.status(500).json({ error: 'Server error while fetching dishes' });
   }
 };
-
 //================================================================
 // To search for restaurants
 //================================================================
