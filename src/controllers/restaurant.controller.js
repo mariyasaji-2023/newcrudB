@@ -171,24 +171,19 @@ export const allRestaurants = async (req, res) => {
 
 export const createCategory = async (req, res) => {
   const { restaurantId } = req.params;
-  console.log(restaurantId);
-
   const { categoryName } = req.body;
-  console.log(categoryName);
 
   if (!categoryName) {
     return res.status(400).json({ message: 'Category name is required' });
   }
 
   try {
-    // Fetch the restaurant by ID
     const restaurant = await Restaurant.findById(restaurantId);
 
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
 
-    // Check if the category name already exists in the restaurant
     const categoryExists = restaurant.categories.some(
       (category) => category.categoryName === categoryName
     );
@@ -197,19 +192,22 @@ export const createCategory = async (req, res) => {
       return res.status(400).json({ message: 'Category already exists' });
     }
 
-    // Add the new category
+    // Create the new category
     const newCategory = { categoryName, dishes: [] };
     restaurant.categories.push(newCategory);
 
     // Save the updated restaurant
     await restaurant.save();
 
+    // Get the newly added category (last item in the array)
+    const addedCategory = restaurant.categories[restaurant.categories.length - 1];
+
     res.status(201).json({
       message: 'Category saved successfully',
       categories: restaurant.categories,
+      newCategoryId: addedCategory._id // Include the new category's ID
     });
   } catch (error) {
-    // Handle errors and respond with a generic server error message
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -301,6 +299,10 @@ export const editCategory = async (req, res) => {
 export const createSubCategory = async (req, res) => {
   try {
     const { restaurantId, categoryId } = req.params;
+    console.log(restaurantId);
+    
+    console.log(categoryId);
+    
     const { subCategoryName } = req.body;
 
     // Validate inputs
