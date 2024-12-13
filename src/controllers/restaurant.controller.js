@@ -157,13 +157,41 @@ export const editRestaurant = async (req, res) => {
 
 export const allRestaurants = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find();
-    return res.status(200).json({ restaurants });
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = 20; // Number of restaurants per page
+    const skip = (page - 1) * limit;
+
+    // Get search query from request
+    const searchQuery = req.query.search || '';
+
+    // Create a search filter
+    const searchFilter = searchQuery 
+      ? { restaurantName: { $regex: searchQuery, $options: 'i' } } 
+      : {};
+
+    // Fetch restaurants with pagination, search, and sorting by updatedAt (descending)
+    const restaurants = await Restaurant.find(searchFilter)
+      .skip(skip)
+      .limit(limit)
+      .sort({ updatedAt: -1, createdAt: -1 }); // Sort by updatedAt first, then createdAt
+
+    // Count total restaurants matching the search filter
+    const totalRestaurants = await Restaurant.countDocuments(searchFilter);
+    const totalPages = Math.ceil(totalRestaurants / limit);
+
+    return res.status(200).json({
+      currentPage: page,
+      totalPages,
+      totalRestaurants,
+      restaurants,
+    });
   } catch (error) {
-    console.log('all restaurants controller error: ', error.message);
-    res.status(500).json({ message: 'error fetching restaurants' });
+    console.error('all restaurants controller error:', error.message);
+    res.status(500).json({ message: 'Error fetching restaurants' });
   }
 };
+
+
 
 //================================================================
 // to create categories
