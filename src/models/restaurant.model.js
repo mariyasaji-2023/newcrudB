@@ -9,14 +9,15 @@ const servingInfoShema = new mongoose.Schema(
         required: true,
       },
       price: {
-        type: Number,
+        type: String,
         required: false,
       },
       nutritionFacts: {
         calories: {
           value: {
-            type: Number,
+            type: String,
             required: true,
+            min: [0, 'Value must be greater than or equal to 0'],
           },
           unit: {
             type: String,
@@ -25,7 +26,7 @@ const servingInfoShema = new mongoose.Schema(
         },
         protein: {
           value: {
-            type: Number,
+            type: String,
             required: true,
           },
           unit: {
@@ -35,7 +36,7 @@ const servingInfoShema = new mongoose.Schema(
         },
         carbs: {
           value: {
-            type: Number,
+            type: String,
             required: true,
           },
           unit: {
@@ -45,7 +46,7 @@ const servingInfoShema = new mongoose.Schema(
         },
         totalFat: {
           value: {
-            type: Number,
+            type: String,
             required: true,
           },
           unit: {

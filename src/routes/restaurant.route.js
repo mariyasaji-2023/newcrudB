@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import {
   allCategories,
   allDishes,
@@ -7,6 +7,7 @@ import {
   createDish,
   createRestaurant,
   createSubCategory,
+  deleteDish,
   deleteRestaurant,
   editRestaurant,
   searchDish,
@@ -33,5 +34,8 @@ routes.get('/searchRestaurants', searchRestaurant); // Search for restaurants
 routes.get('/totalDishes', totalDishes); // Get the total number of dishes
 routes.get('/totalRestaurants', totalRestaurants); // Get the total number of restaurants
 routes.get('/searchDish/:restaurantId', searchDish);
+routes.delete('/deleteDish/:restaurantId/:dishId', deleteDish);
+
+
 
 export default routes;
