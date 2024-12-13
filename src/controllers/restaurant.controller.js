@@ -165,8 +165,8 @@ export const allRestaurants = async (req, res) => {
     const searchQuery = req.query.search || '';
 
     // Create a search filter
-    const searchFilter = searchQuery 
-      ? { restaurantName: { $regex: searchQuery, $options: 'i' } } 
+    const searchFilter = searchQuery
+      ? { restaurantName: { $regex: searchQuery, $options: 'i' } }
       : {};
 
     // Fetch restaurants with pagination, search, and sorting by updatedAt (descending)
@@ -190,8 +190,6 @@ export const allRestaurants = async (req, res) => {
     res.status(500).json({ message: 'Error fetching restaurants' });
   }
 };
-
-
 
 //================================================================
 // to create categories
@@ -444,8 +442,15 @@ export const createDish = async (req, res) => {
   } = req.body;
 
   // Validate required fields
-  if (!dishName || !servingInfos || !Array.isArray(servingInfos) || servingInfos.length === 0) {
-    return res.status(400).json({ message: 'Dish name and serving information are required' });
+  if (
+    !dishName ||
+    !servingInfos ||
+    !Array.isArray(servingInfos) ||
+    servingInfos.length === 0
+  ) {
+    return res
+      .status(400)
+      .json({ message: 'Dish name and serving information are required' });
   }
 
   try {
@@ -523,8 +528,6 @@ export const createDish = async (req, res) => {
   }
 };
 
-
-
 //================================================================
 //list of all dishes of a restaurant
 //================================================================
@@ -597,6 +600,13 @@ export const allDishes = async (req, res) => {
       }
     });
 
+    // Sort dishes by updatedAt (most recent first)
+    dishes.sort((a, b) => {
+      const dateA = new Date(a.updatedAt);
+      const dateB = new Date(b.updatedAt);
+      return dateB - dateA; // Descending order
+    });
+
     if (dishes.length === 0) {
       return res.status(200).json({
         message: 'No dishes found for this restaurant',
@@ -624,6 +634,7 @@ export const allDishes = async (req, res) => {
     res.status(500).json({ error: 'Server error while fetching dishes' });
   }
 };
+
 //================================================================
 // To search for restaurants
 //================================================================
@@ -691,7 +702,6 @@ export const deleteDish = async (req, res) => {
     });
   }
 };
-
 
 export const searchRestaurant = async (req, res) => {
   const { query } = req.query; // query parameter passed by the user
