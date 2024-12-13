@@ -199,7 +199,7 @@ export const createCategory = async (req, res) => {
   const { restaurantId } = req.params;
   console.log(restaurantId);
 
-  const { categoryName } = req.body;;
+  const { categoryName } = req.body;
 
   if (!categoryName) {
     return res.status(400).json({ message: 'Category name is required' });
