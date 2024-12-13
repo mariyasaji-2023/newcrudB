@@ -331,6 +331,11 @@ export const createSubCategory = async (req, res) => {
     
     const { subCategoryName } = req.body;
 
+    console.log('Res id',restaurantId);
+    console.log('Cat id',categoryId);
+    
+    
+
     // Validate inputs
     if (!subCategoryName) {
       return res.status(400).json({ message: 'Subcategory name is required' });
@@ -642,18 +647,13 @@ export const allDishes = async (req, res) => {
 //================================================================
 
 export const deleteDish = async (req, res) => {
-  const { restaurantId, categoryId, subCategoryId } = req.params;
-  const { dishId, deleteId } = req.body;
+  const { restaurantId, dishId } = req.params;
 
   // Validate deleteId
+  const { deleteId } = req.body;
   const secretId = 'delete';
   if (!deleteId || deleteId !== secretId) {
     return res.status(400).json({ message: 'Invalid delete ID' });
-  }
-
-  // Validate dishId
-  if (!dishId) {
-    return res.status(400).json({ message: 'Dish ID is required' });
   }
 
   try {
@@ -663,31 +663,35 @@ export const deleteDish = async (req, res) => {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
 
-    // Find the category within the restaurant
-    const category = restaurant.categories.id(categoryId);
-    if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
-    }
-
-    let target = category;
-
-    // If subCategoryId is provided, find the subcategory
-    if (subCategoryId) {
-      const subCategory = category.subCategories.id(subCategoryId);
-      if (!subCategory) {
-        return res.status(404).json({ message: 'Subcategory not found' });
+    // Loop through all categories and subcategories to find the dish
+    let dishFound = false;
+    for (let category of restaurant.categories) {
+      // Look through category dishes
+      let dish = category.dishes.id(dishId);
+      if (dish) {
+        category.dishes.pull(dishId);
+        dishFound = true;
+        break;
       }
-      target = subCategory;
+
+      // If subcategories exist, look through them too
+      if (category.subCategories) {
+        for (let subCategory of category.subCategories) {
+          dish = subCategory.dishes.id(dishId);
+          if (dish) {
+            subCategory.dishes.pull(dishId);
+            dishFound = true;
+            break;
+          }
+        }
+      }
+
+      if (dishFound) break;
     }
 
-    // Find the dish within the target (category or subcategory)
-    const dish = target.dishes.id(dishId);
-    if (!dish) {
+    if (!dishFound) {
       return res.status(404).json({ message: 'Dish not found' });
     }
-
-    // Remove the dish from the target (category or subcategory)
-    target.dishes.pull(dishId);
 
     // Save the updated restaurant document
     await restaurant.save();
@@ -704,6 +708,7 @@ export const deleteDish = async (req, res) => {
     });
   }
 };
+
 
 export const searchRestaurant = async (req, res) => {
   const { query } = req.query; // query parameter passed by the user
