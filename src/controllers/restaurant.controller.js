@@ -566,12 +566,12 @@ export const editDish = async (req, res) => {
 
   try {
     const categoryIdObject = mongoose.Types.ObjectId.isValid(categoryId)
-      ? mongoose.Types.ObjectId(categoryId)
+      ? new mongoose.Types.ObjectId(categoryId)
       : categoryId;
 
     // Find the restaurant containing the category
     const restaurant = await Restaurant.findOne({
-      'categories._id': categoryId,
+      'categories._id': categoryIdObject,
     });
 
     if (!restaurant) {
@@ -579,7 +579,7 @@ export const editDish = async (req, res) => {
     }
 
     // Find the specific category
-    const category = restaurant.categories.id(categoryId);
+    const category = restaurant.categories.id(categoryIdObject);
     if (!category) {
       return res.status(404).json({ message: 'Category not found' });
     }
@@ -595,10 +595,18 @@ export const editDish = async (req, res) => {
       target = subCategory;
     }
 
-    // Find the dish to be updated
-    const dish = target.dishes.id(dishId);
+    // Debugging step: log the target and check if target.dishes is an array
+    console.log('Target:', target);
+    console.log('Dishes in target:', target.dishes);
+
+    // Find the dish in the target (category/subcategory)
+    let dish = target.dishes.id(dishId);
     if (!dish) {
-      return res.status(404).json({ message: 'Dish not found' });
+      return res
+        .status(404)
+        .json({
+          message: 'Dish not found in the selected category/subcategory',
+        });
     }
 
     // Check if a dish with the same name already exists (excluding the current dish)
@@ -610,7 +618,8 @@ export const editDish = async (req, res) => {
 
     if (dishExists) {
       return res.status(400).json({
-        message: 'Dish with the same name already exists',
+        message:
+          'Dish with the same name already exists in the selected category/subcategory',
       });
     }
 
@@ -869,49 +878,67 @@ export const searchDish = async (req, res) => {
   }
 
   try {
-    console.log("Searching for dishes in restaurant:", restaurantId, "with query:", query);
+    console.log(
+      'Searching for dishes in restaurant:',
+      restaurantId,
+      'with query:',
+      query
+    );
 
     const searchResults = await Restaurant.aggregate([
       { $match: { _id: new mongoose.Types.ObjectId(restaurantId) } },
-      { $unwind: "$categories" },
+      { $unwind: '$categories' },
       {
         $unwind: {
-          path: "$categories.subCategories",
+          path: '$categories.subCategories',
           preserveNullAndEmptyArrays: true,
         },
       },
       {
         $facet: {
           categoryDishes: [
-            { $unwind: { path: "$categories.dishes", preserveNullAndEmptyArrays: true } },
+            {
+              $unwind: {
+                path: '$categories.dishes',
+                preserveNullAndEmptyArrays: true,
+              },
+            },
             {
               $match: {
-                "categories.dishes.dishName": { $regex: query, $options: "i" },
+                'categories.dishes.dishName': { $regex: query, $options: 'i' },
               },
             },
             {
               $project: {
-                categoryName: "$categories.categoryName",
-                dishName: "$categories.dishes.dishName",
-                description: "$categories.dishes.description",
-                servingInfos: "$categories.dishes.servingInfos",
+                categoryName: '$categories.categoryName',
+                dishName: '$categories.dishes.dishName',
+                description: '$categories.dishes.description',
+                servingInfos: '$categories.dishes.servingInfos',
               },
             },
           ],
           subCategoryDishes: [
-            { $unwind: { path: "$categories.subCategories.dishes", preserveNullAndEmptyArrays: true } },
+            {
+              $unwind: {
+                path: '$categories.subCategories.dishes',
+                preserveNullAndEmptyArrays: true,
+              },
+            },
             {
               $match: {
-                "categories.subCategories.dishes.dishName": { $regex: query, $options: "i" },
+                'categories.subCategories.dishes.dishName': {
+                  $regex: query,
+                  $options: 'i',
+                },
               },
             },
             {
               $project: {
-                categoryName: "$categories.categoryName",
-                subCategoryName: "$categories.subCategories.subCategoryName",
-                dishName: "$categories.subCategories.dishes.dishName",
-                description: "$categories.subCategories.dishes.description",
-                servingInfos: "$categories.subCategories.dishes.servingInfos",
+                categoryName: '$categories.categoryName',
+                subCategoryName: '$categories.subCategories.subCategoryName',
+                dishName: '$categories.subCategories.dishes.dishName',
+                description: '$categories.subCategories.dishes.description',
+                servingInfos: '$categories.subCategories.dishes.servingInfos',
               },
             },
           ],
@@ -919,7 +946,7 @@ export const searchDish = async (req, res) => {
       },
       {
         $project: {
-          results: { $concatArrays: ["$categoryDishes", "$subCategoryDishes"] },
+          results: { $concatArrays: ['$categoryDishes', '$subCategoryDishes'] },
         },
       },
     ]);
@@ -927,14 +954,14 @@ export const searchDish = async (req, res) => {
     const results = searchResults[0]?.results || [];
 
     if (results.length === 0) {
-      return res.status(404).json({ message: "No matching dishes found." });
+      return res.status(404).json({ message: 'No matching dishes found.' });
     }
 
     return res.status(200).json({ results });
   } catch (error) {
-    console.error("Error during dish search:", error);
+    console.error('Error during dish search:', error);
     return res.status(500).json({
-      message: "An error occurred while searching for dishes.",
+      message: 'An error occurred while searching for dishes.',
       error: error.message,
     });
   }
