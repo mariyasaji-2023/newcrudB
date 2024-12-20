@@ -9,6 +9,7 @@ import {
   createSubCategory,
   deleteDish,
   deleteRestaurant,
+  editDish,
   editRestaurant,
   searchDish,
   searchRestaurant,
@@ -35,7 +36,8 @@ routes.get('/totalDishes', totalDishes); // Get the total number of dishes
 routes.get('/totalRestaurants', totalRestaurants); // Get the total number of restaurants
 routes.get('/searchDish/:restaurantId', searchDish);
 routes.delete('/deleteDish/:restaurantId/:dishId', deleteDish);
-
+routes.put('/editDish/:dishId/:categoryId', editDish);
+routes.put('/editDish/:dishId/:categoryId/:subCategoryId', editDish);
 
 
 export default routes;

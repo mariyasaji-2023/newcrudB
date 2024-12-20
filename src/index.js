@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import restaurantRoutes from './/routes/restaurant.route.js';
+import restaurantRoutes from './routes/restaurant.route.js';
 import { dbConnect } from './lib/db.js';
 
 const app = express();
@@ -22,8 +22,6 @@ app.use(express.urlencoded({ extended: true }));
 
 
 app.use('/public', express.static(path.join(__dirname,'..', 'public')));
-
-
 
 
 app.use(cors());
