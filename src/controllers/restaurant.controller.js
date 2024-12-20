@@ -541,27 +541,17 @@ export const createDish = async (req, res) => {
 
 export const editDish = async (req, res) => {
   const { dishId, categoryId, subCategoryId } = req.params;
-
-  console.log('cat', categoryId);
-  console.log('sub', subCategoryId);
-  console.log('dish', dishId);
+  const { originalCategoryId, originalSubCategoryId } = req.body; // Add these to track original location
 
   const {
     dishName,
     description,
-    servingInfos, // Array of serving info objects
+    servingInfos,
   } = req.body;
 
   // Validate required fields
-  if (
-    !dishName ||
-    !servingInfos ||
-    !Array.isArray(servingInfos) ||
-    servingInfos.length === 0
-  ) {
-    return res
-      .status(400)
-      .json({ message: 'Dish name and serving information are required' });
+  if (!dishName || !servingInfos || !Array.isArray(servingInfos) || servingInfos.length === 0) {
+    return res.status(400).json({ message: 'Dish name and serving information are required' });
   }
 
   try {
@@ -569,88 +559,105 @@ export const editDish = async (req, res) => {
       ? new mongoose.Types.ObjectId(categoryId)
       : categoryId;
 
-    // Find the restaurant containing the category
+    const originalCategoryIdObject = mongoose.Types.ObjectId.isValid(originalCategoryId)
+      ? new mongoose.Types.ObjectId(originalCategoryId)
+      : originalCategoryId;
+
+    // Find the restaurant
     const restaurant = await Restaurant.findOne({
-      'categories._id': categoryIdObject,
+      'categories._id': { $in: [categoryIdObject, originalCategoryIdObject] }
     });
 
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
 
-    // Find the specific category
-    const category = restaurant.categories.id(categoryIdObject);
-    if (!category) {
+    // Find both original and new categories
+    const originalCategory = restaurant.categories.id(originalCategoryIdObject);
+    const newCategory = restaurant.categories.id(categoryIdObject);
+
+    if (!originalCategory || !newCategory) {
       return res.status(404).json({ message: 'Category not found' });
     }
 
-    let target = category;
+    // Determine original and new targets (category or subcategory)
+    let originalTarget = originalCategory;
+    let newTarget = newCategory;
 
-    // If subCategoryId is provided, find the subcategory
-    if (subCategoryId) {
-      const subCategory = category.subCategories.id(subCategoryId);
-      if (!subCategory) {
-        return res.status(404).json({ message: 'Subcategory not found' });
+    if (originalSubCategoryId) {
+      originalTarget = originalCategory.subCategories.id(originalSubCategoryId);
+      if (!originalTarget) {
+        return res.status(404).json({ message: 'Original subcategory not found' });
       }
-      target = subCategory;
     }
 
-    // Debugging step: log the target and check if target.dishes is an array
-    console.log('Target:', target);
-    console.log('Dishes in target:', target.dishes);
-
-    // Find the dish in the target (category/subcategory)
-    let dish = target.dishes.id(dishId);
-    if (!dish) {
-      return res
-        .status(404)
-        .json({
-          message: 'Dish not found in the selected category/subcategory',
-        });
+    if (subCategoryId) {
+      newTarget = newCategory.subCategories.id(subCategoryId);
+      if (!newTarget) {
+        return res.status(404).json({ message: 'New subcategory not found' });
+      }
     }
 
-    // Check if a dish with the same name already exists (excluding the current dish)
-    const dishExists = target.dishes.some(
-      (existingDish) =>
-        existingDish.dishName === dishName &&
-        existingDish._id.toString() !== dishId
+    // Find the dish in the original location
+    const originalDish = originalTarget.dishes.id(dishId);
+    if (!originalDish) {
+      return res.status(404).json({
+        message: 'Dish not found in the original category/subcategory'
+      });
+    }
+
+    // Check if a dish with the same name exists in the new location
+    const dishExists = newTarget.dishes.some(
+      existingDish => existingDish.dishName === dishName && existingDish._id.toString() !== dishId
     );
 
     if (dishExists) {
       return res.status(400).json({
-        message:
-          'Dish with the same name already exists in the selected category/subcategory',
+        message: 'Dish with the same name already exists in the target category/subcategory'
       });
     }
 
-    // Update the dish fields
-    dish.dishName = dishName;
-    dish.description = description;
-    dish.servingInfos = servingInfos.map((info) => ({
-      servingInfo: {
-        size: info.size,
-        price: info.price,
-        nutritionFacts: {
-          calories: { value: info.nutritionFacts.calories, unit: 'kcl' },
-          protein: { value: info.nutritionFacts.protein, unit: 'g' },
-          carbs: { value: info.nutritionFacts.carbs, unit: 'g' },
-          totalFat: { value: info.nutritionFacts.totalFat, unit: 'g' },
+    // Create updated dish object
+    const updatedDish = {
+      _id: originalDish._id,
+      dishName,
+      description,
+      servingInfos: servingInfos.map(info => ({
+        servingInfo: {
+          size: info.size,
+          price: info.price,
+          nutritionFacts: {
+            calories: { value: info.nutritionFacts.calories, unit: 'kcl' },
+            protein: { value: info.nutritionFacts.protein, unit: 'g' },
+            carbs: { value: info.nutritionFacts.carbs, unit: 'g' },
+            totalFat: { value: info.nutritionFacts.totalFat, unit: 'g' },
+          },
         },
-      },
-    }));
+      })),
+    };
+
+    // Remove dish from original location
+    originalTarget.dishes = originalTarget.dishes.filter(
+      dish => dish._id.toString() !== dishId
+    );
+
+    // Add dish to new location
+    newTarget.dishes.push(updatedDish);
 
     // Save the updated restaurant document
     await restaurant.save();
 
     res.status(200).json({
-      message: 'Dish updated successfully',
-      dish,
+      message: 'Dish updated and moved successfully',
+      dish: updatedDish,
     });
   } catch (error) {
     console.error('Error in editDish:', error.message);
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+
 
 //================================================================
 //list of all dishes of a restaurant
