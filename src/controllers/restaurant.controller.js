@@ -766,6 +766,60 @@ export const allDishes = async (req, res) => {
   }
 };
 
+
+
+export const countDishesInRestaurant = async (req, res) => {
+  const { restaurantId } = req.params;
+  console.log('Restaurant ID:', restaurantId); // Debugging log
+
+  if (!restaurantId) {
+    return res.status(400).json({ message: 'Restaurant ID is required' });
+  }
+
+  try {
+    // Find the restaurant by ID
+    const restaurant = await Restaurant.findById(restaurantId);
+    console.log('Restaurant object:', restaurant);
+
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Initialize count
+    let dishCount = 0;
+
+    // Count dishes in categories
+    restaurant.categories.forEach((category) => {
+      // Count dishes directly in the category
+      if (category.dishes && Array.isArray(category.dishes)) {
+        dishCount += category.dishes.length;
+      }
+
+      // Count dishes in subcategories
+      if (category.subCategories && Array.isArray(category.subCategories)) {
+        category.subCategories.forEach((subCategory) => {
+          if (subCategory.dishes && Array.isArray(subCategory.dishes)) {
+            dishCount += subCategory.dishes.length;
+          }
+        });
+      }
+    });
+
+    // Return the total dish count
+    res.status(200).json({
+      message: 'Dish count fetched successfully',
+      restaurant: {
+        id: restaurant._id,
+        name: restaurant.restaurantName,
+      },
+      dishCount,
+    });
+  } catch (error) {
+    console.error('Error fetching dish count:', error.message);
+    res.status(500).json({ error: 'Server error while fetching dish count' });
+  }
+};
+
 //================================================================
 // To search for restaurants
 //================================================================

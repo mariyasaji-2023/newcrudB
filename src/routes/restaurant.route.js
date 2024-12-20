@@ -3,6 +3,7 @@ import {
   allCategories,
   allDishes,
   allRestaurants,
+  countDishesInRestaurant,
   createCategory,
   createDish,
   createRestaurant,
@@ -38,6 +39,7 @@ routes.get('/searchDish/:restaurantId', searchDish);
 routes.delete('/deleteDish/:restaurantId/:dishId', deleteDish);
 routes.put('/editDish/:dishId/:categoryId', editDish);
 routes.put('/editDish/:dishId/:categoryId/:subCategoryId', editDish);
+routes.get('/dishCount/:restaurantId' ,countDishesInRestaurant);
 
 
 export default routes;
