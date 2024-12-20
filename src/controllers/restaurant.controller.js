@@ -1,4 +1,5 @@
 import Restaurant from '../models/restaurant.model.js';
+import mongoose from 'mongoose';
 const DEFAULT_LOGO_PATH = '/restaurant-default-logo/restaurantdefaultlogo.webp';
 
 import fs from 'fs/promises'; // For handling file operations
@@ -226,12 +227,13 @@ export const createCategory = async (req, res) => {
     await restaurant.save();
 
     // Get the newly added category (last item in the array)
-    const addedCategory = restaurant.categories[restaurant.categories.length - 1];
+    const addedCategory =
+      restaurant.categories[restaurant.categories.length - 1];
 
     res.status(201).json({
       message: 'Category saved successfully',
       categories: restaurant.categories,
-      newCategoryId: addedCategory._id // Include the new category's ID
+      newCategoryId: addedCategory._id, // Include the new category's ID
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -326,15 +328,13 @@ export const createSubCategory = async (req, res) => {
   try {
     const { restaurantId, categoryId } = req.params;
     console.log(restaurantId);
-    
+
     console.log(categoryId);
-    
+
     const { subCategoryName } = req.body;
 
-    console.log('Res id',restaurantId);
-    console.log('Cat id',categoryId);
-    
-    
+    console.log('Res id', restaurantId);
+    console.log('Cat id', categoryId);
 
     // Validate inputs
     if (!subCategoryName) {
@@ -536,6 +536,114 @@ export const createDish = async (req, res) => {
 };
 
 //================================================================
+//Edit Dish
+//================================================================
+
+export const editDish = async (req, res) => {
+  const { dishId, categoryId, subCategoryId } = req.params;
+
+  console.log('cat', categoryId);
+  console.log('sub', subCategoryId);
+  console.log('dish', dishId);
+
+  const {
+    dishName,
+    description,
+    servingInfos, // Array of serving info objects
+  } = req.body;
+
+  // Validate required fields
+  if (
+    !dishName ||
+    !servingInfos ||
+    !Array.isArray(servingInfos) ||
+    servingInfos.length === 0
+  ) {
+    return res
+      .status(400)
+      .json({ message: 'Dish name and serving information are required' });
+  }
+
+  try {
+    const categoryIdObject = mongoose.Types.ObjectId.isValid(categoryId)
+      ? mongoose.Types.ObjectId(categoryId)
+      : categoryId;
+
+    // Find the restaurant containing the category
+    const restaurant = await Restaurant.findOne({
+      'categories._id': categoryId,
+    });
+
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Find the specific category
+    const category = restaurant.categories.id(categoryId);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    let target = category;
+
+    // If subCategoryId is provided, find the subcategory
+    if (subCategoryId) {
+      const subCategory = category.subCategories.id(subCategoryId);
+      if (!subCategory) {
+        return res.status(404).json({ message: 'Subcategory not found' });
+      }
+      target = subCategory;
+    }
+
+    // Find the dish to be updated
+    const dish = target.dishes.id(dishId);
+    if (!dish) {
+      return res.status(404).json({ message: 'Dish not found' });
+    }
+
+    // Check if a dish with the same name already exists (excluding the current dish)
+    const dishExists = target.dishes.some(
+      (existingDish) =>
+        existingDish.dishName === dishName &&
+        existingDish._id.toString() !== dishId
+    );
+
+    if (dishExists) {
+      return res.status(400).json({
+        message: 'Dish with the same name already exists',
+      });
+    }
+
+    // Update the dish fields
+    dish.dishName = dishName;
+    dish.description = description;
+    dish.servingInfos = servingInfos.map((info) => ({
+      servingInfo: {
+        size: info.size,
+        price: info.price,
+        nutritionFacts: {
+          calories: { value: info.nutritionFacts.calories, unit: 'kcl' },
+          protein: { value: info.nutritionFacts.protein, unit: 'g' },
+          carbs: { value: info.nutritionFacts.carbs, unit: 'g' },
+          totalFat: { value: info.nutritionFacts.totalFat, unit: 'g' },
+        },
+      },
+    }));
+
+    // Save the updated restaurant document
+    await restaurant.save();
+
+    res.status(200).json({
+      message: 'Dish updated successfully',
+      dish,
+    });
+  } catch (error) {
+    console.error('Error in editDish:', error.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+//================================================================
 //list of all dishes of a restaurant
 //================================================================
 
@@ -709,7 +817,9 @@ export const deleteDish = async (req, res) => {
   }
 };
 
-
+//================================================================
+//Search Restaurant
+//================================================================
 export const searchRestaurant = async (req, res) => {
   const { query } = req.query; // query parameter passed by the user
 
@@ -753,83 +863,78 @@ export const searchDish = async (req, res) => {
     return res.status(400).json({ message: 'Search query is required' });
   }
 
+  // Validate restaurantId
+  if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+    return res.status(400).json({ message: 'Invalid restaurant ID' });
+  }
+
   try {
-    // Find the restaurant by its ID
-    const restaurant = await Restaurant.findById(restaurantId);
+    console.log("Searching for dishes in restaurant:", restaurantId, "with query:", query);
 
-    if (!restaurant) {
-      return res.status(404).json({ message: 'Restaurant not found' });
+    const searchResults = await Restaurant.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(restaurantId) } },
+      { $unwind: "$categories" },
+      {
+        $unwind: {
+          path: "$categories.subCategories",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $facet: {
+          categoryDishes: [
+            { $unwind: { path: "$categories.dishes", preserveNullAndEmptyArrays: true } },
+            {
+              $match: {
+                "categories.dishes.dishName": { $regex: query, $options: "i" },
+              },
+            },
+            {
+              $project: {
+                categoryName: "$categories.categoryName",
+                dishName: "$categories.dishes.dishName",
+                description: "$categories.dishes.description",
+                servingInfos: "$categories.dishes.servingInfos",
+              },
+            },
+          ],
+          subCategoryDishes: [
+            { $unwind: { path: "$categories.subCategories.dishes", preserveNullAndEmptyArrays: true } },
+            {
+              $match: {
+                "categories.subCategories.dishes.dishName": { $regex: query, $options: "i" },
+              },
+            },
+            {
+              $project: {
+                categoryName: "$categories.categoryName",
+                subCategoryName: "$categories.subCategories.subCategoryName",
+                dishName: "$categories.subCategories.dishes.dishName",
+                description: "$categories.subCategories.dishes.description",
+                servingInfos: "$categories.subCategories.dishes.servingInfos",
+              },
+            },
+          ],
+        },
+      },
+      {
+        $project: {
+          results: { $concatArrays: ["$categoryDishes", "$subCategoryDishes"] },
+        },
+      },
+    ]);
+
+    const results = searchResults[0]?.results || [];
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "No matching dishes found." });
     }
 
-    // Search inside the restaurant's categories, subcategories, and dishes
-    const result = restaurant.categories.reduce((acc, category) => {
-      // Search in category name
-      if (category.categoryName.toLowerCase().includes(query.toLowerCase())) {
-        acc.push({
-          categoryName: category.categoryName,
-          matches: category.dishes,
-        });
-      }
-
-      // Check if subCategories exist and iterate through them
-      category.subCategories?.forEach((subCategory) => {
-        // Search in subcategory name
-        if (
-          subCategory.subCategoryName
-            .toLowerCase()
-            .includes(query.toLowerCase())
-        ) {
-          acc.push({
-            categoryName: category.categoryName,
-            subCategoryName: subCategory.subCategoryName,
-            matches: subCategory.dishes,
-          });
-        }
-
-        // Check if dishes exist in the subcategory and search them
-        subCategory.dishes?.forEach((dish) => {
-          // Search in dish name
-          if (dish.dishName.toLowerCase().includes(query.toLowerCase())) {
-            acc.push({
-              categoryName: category.categoryName,
-              subCategoryName: subCategory.subCategoryName,
-              dishName: dish.dishName,
-              description: dish.description,
-              servingInfo: dish.servingInfo,
-              nutritionFacts: dish.nutritionFacts,
-            });
-          }
-        });
-      });
-
-      // Check if dishes exist in the category and search them
-      category.dishes?.forEach((dish) => {
-        // Search in dish name
-        if (dish.dishName.toLowerCase().includes(query.toLowerCase())) {
-          acc.push({
-            categoryName: category.categoryName,
-            dishName: dish.dishName,
-            description: dish.description,
-            servingInfo: dish.servingInfo,
-            nutritionFacts: dish.nutritionFacts,
-          });
-        }
-      });
-
-      return acc;
-    }, []);
-
-    if (result.length === 0) {
-      return res
-        .status(404)
-        .json({ message: 'No matching dishes found in this restaurant' });
-    }
-
-    return res.status(200).json({ results: result });
+    return res.status(200).json({ results });
   } catch (error) {
-    console.error('Error searching dishes in restaurant:', error.message);
+    console.error("Error during dish search:", error);
     return res.status(500).json({
-      message: 'Error searching for dishes in restaurant',
+      message: "An error occurred while searching for dishes.",
       error: error.message,
     });
   }
