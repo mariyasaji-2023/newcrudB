@@ -21,7 +21,7 @@ const servingInfoShema = new mongoose.Schema(
           },
           unit: {
             type: String,
-            default: 'kcl',
+            default: 'cal',
           },
         },
         protein: {
