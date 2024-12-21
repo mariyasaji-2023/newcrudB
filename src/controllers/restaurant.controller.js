@@ -510,7 +510,7 @@ export const createDish = async (req, res) => {
           size: info.size,
           price: info.price,
           nutritionFacts: {
-            calories: { value: info.nutritionFacts.calories, unit: 'kcl' },
+            calories: { value: info.nutritionFacts.calories, unit: 'cal' },
             protein: { value: info.nutritionFacts.protein, unit: 'g' },
             carbs: { value: info.nutritionFacts.carbs, unit: 'g' },
             totalFat: { value: info.nutritionFacts.totalFat, unit: 'g' },
@@ -543,15 +543,18 @@ export const editDish = async (req, res) => {
   const { dishId, categoryId, subCategoryId } = req.params;
   const { originalCategoryId, originalSubCategoryId } = req.body; // Add these to track original location
 
-  const {
-    dishName,
-    description,
-    servingInfos,
-  } = req.body;
+  const { dishName, description, servingInfos } = req.body;
 
   // Validate required fields
-  if (!dishName || !servingInfos || !Array.isArray(servingInfos) || servingInfos.length === 0) {
-    return res.status(400).json({ message: 'Dish name and serving information are required' });
+  if (
+    !dishName ||
+    !servingInfos ||
+    !Array.isArray(servingInfos) ||
+    servingInfos.length === 0
+  ) {
+    return res
+      .status(400)
+      .json({ message: 'Dish name and serving information are required' });
   }
 
   try {
@@ -559,13 +562,15 @@ export const editDish = async (req, res) => {
       ? new mongoose.Types.ObjectId(categoryId)
       : categoryId;
 
-    const originalCategoryIdObject = mongoose.Types.ObjectId.isValid(originalCategoryId)
+    const originalCategoryIdObject = mongoose.Types.ObjectId.isValid(
+      originalCategoryId
+    )
       ? new mongoose.Types.ObjectId(originalCategoryId)
       : originalCategoryId;
 
     // Find the restaurant
     const restaurant = await Restaurant.findOne({
-      'categories._id': { $in: [categoryIdObject, originalCategoryIdObject] }
+      'categories._id': { $in: [categoryIdObject, originalCategoryIdObject] },
     });
 
     if (!restaurant) {
@@ -587,7 +592,9 @@ export const editDish = async (req, res) => {
     if (originalSubCategoryId) {
       originalTarget = originalCategory.subCategories.id(originalSubCategoryId);
       if (!originalTarget) {
-        return res.status(404).json({ message: 'Original subcategory not found' });
+        return res
+          .status(404)
+          .json({ message: 'Original subcategory not found' });
       }
     }
 
@@ -602,18 +609,21 @@ export const editDish = async (req, res) => {
     const originalDish = originalTarget.dishes.id(dishId);
     if (!originalDish) {
       return res.status(404).json({
-        message: 'Dish not found in the original category/subcategory'
+        message: 'Dish not found in the original category/subcategory',
       });
     }
 
     // Check if a dish with the same name exists in the new location
     const dishExists = newTarget.dishes.some(
-      existingDish => existingDish.dishName === dishName && existingDish._id.toString() !== dishId
+      (existingDish) =>
+        existingDish.dishName === dishName &&
+        existingDish._id.toString() !== dishId
     );
 
     if (dishExists) {
       return res.status(400).json({
-        message: 'Dish with the same name already exists in the target category/subcategory'
+        message:
+          'Dish with the same name already exists in the target category/subcategory',
       });
     }
 
@@ -622,12 +632,12 @@ export const editDish = async (req, res) => {
       _id: originalDish._id,
       dishName,
       description,
-      servingInfos: servingInfos.map(info => ({
+      servingInfos: servingInfos.map((info) => ({
         servingInfo: {
           size: info.size,
           price: info.price,
           nutritionFacts: {
-            calories: { value: info.nutritionFacts.calories, unit: 'kcl' },
+            calories: { value: info.nutritionFacts.calories, unit: 'cal' },
             protein: { value: info.nutritionFacts.protein, unit: 'g' },
             carbs: { value: info.nutritionFacts.carbs, unit: 'g' },
             totalFat: { value: info.nutritionFacts.totalFat, unit: 'g' },
@@ -638,7 +648,7 @@ export const editDish = async (req, res) => {
 
     // Remove dish from original location
     originalTarget.dishes = originalTarget.dishes.filter(
-      dish => dish._id.toString() !== dishId
+      (dish) => dish._id.toString() !== dishId
     );
 
     // Add dish to new location
@@ -656,8 +666,6 @@ export const editDish = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
-
-
 
 //================================================================
 //list of all dishes of a restaurant
@@ -765,8 +773,6 @@ export const allDishes = async (req, res) => {
     res.status(500).json({ error: 'Server error while fetching dishes' });
   }
 };
-
-
 
 export const countDishesInRestaurant = async (req, res) => {
   const { restaurantId } = req.params;
