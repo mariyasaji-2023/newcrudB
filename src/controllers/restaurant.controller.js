@@ -67,7 +67,7 @@ export const deleteRestaurant = async (req, res) => {
   if (!restaurantId) {
     return res.status(400).json({ message: 'Restaurant ID is required' });
   }
-  const secretId = 'delete';
+  const secretId = 'Febbinhungrx';
 
   if (deleteId !== secretId) {
     return res.status(400).json({ message: 'Invalid delete ID' });
@@ -829,7 +829,7 @@ export const deleteDish = async (req, res) => {
 
   // Validate deleteId
   const { deleteId } = req.body;
-  const secretId = 'delete';
+  const secretId = 'Febbinhungrx';
   if (!deleteId || deleteId !== secretId) {
     return res.status(400).json({ message: 'Invalid delete ID' });
   }
