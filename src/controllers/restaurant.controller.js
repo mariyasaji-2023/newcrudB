@@ -695,9 +695,9 @@ export const allDishes = async (req, res) => {
       const subCategories =
         category.subCategories && Array.isArray(category.subCategories)
           ? category.subCategories.map((subCategory) => ({
-              subCategoryId: subCategory._id,
-              subCategoryName: subCategory.subCategoryName,
-            }))
+            subCategoryId: subCategory._id,
+            subCategoryName: subCategory.subCategoryName,
+          }))
           : [];
 
       categories.push({
@@ -930,27 +930,20 @@ export const searchRestaurant = async (req, res) => {
 //================================================================
 //search dihes
 //================================================================
-
 export const searchDish = async (req, res) => {
-  const { restaurantId } = req.params; // restaurantId passed as URL parameter
-  const { query } = req.query; // search query passed by the user
+  const { restaurantId } = req.params;
+  const { query } = req.query;
 
   if (!query) {
     return res.status(400).json({ message: 'Search query is required' });
   }
 
-  // Validate restaurantId
   if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
     return res.status(400).json({ message: 'Invalid restaurant ID' });
   }
 
   try {
-    console.log(
-      'Searching for dishes in restaurant:',
-      restaurantId,
-      'with query:',
-      query
-    );
+    console.log('Searching in restaurant:', restaurantId, 'with query:', query);
 
     const searchResults = await Restaurant.aggregate([
       { $match: { _id: new mongoose.Types.ObjectId(restaurantId) } },
@@ -972,15 +965,21 @@ export const searchDish = async (req, res) => {
             },
             {
               $match: {
-                'categories.dishes.dishName': { $regex: query, $options: 'i' },
+                $or: [
+                  { 'categories.dishes.dishName': { $regex: query, $options: 'i' } },
+                  { 'categories.categoryName': { $regex: query, $options: 'i' } }
+                ]
               },
             },
             {
               $project: {
+                _id: '$categories.dishes._id',
                 categoryName: '$categories.categoryName',
                 dishName: '$categories.dishes.dishName',
                 description: '$categories.dishes.description',
                 servingInfos: '$categories.dishes.servingInfos',
+                createdAt: '$categories.dishes.createdAt',
+                updatedAt: '$categories.dishes.updatedAt'
               },
             },
           ],
@@ -993,19 +992,23 @@ export const searchDish = async (req, res) => {
             },
             {
               $match: {
-                'categories.subCategories.dishes.dishName': {
-                  $regex: query,
-                  $options: 'i',
-                },
+                $or: [
+                  { 'categories.subCategories.dishes.dishName': { $regex: query, $options: 'i' } },
+                  { 'categories.categoryName': { $regex: query, $options: 'i' } },
+                  { 'categories.subCategories.subCategoryName': { $regex: query, $options: 'i' } }
+                ]
               },
             },
             {
               $project: {
+                _id: '$categories.subCategories.dishes._id',
                 categoryName: '$categories.categoryName',
                 subCategoryName: '$categories.subCategories.subCategoryName',
                 dishName: '$categories.subCategories.dishes.dishName',
                 description: '$categories.subCategories.dishes.description',
                 servingInfos: '$categories.subCategories.dishes.servingInfos',
+                createdAt: '$categories.subCategories.dishes.createdAt',
+                updatedAt: '$categories.subCategories.dishes.updatedAt'
               },
             },
           ],
@@ -1013,21 +1016,35 @@ export const searchDish = async (req, res) => {
       },
       {
         $project: {
-          results: { $concatArrays: ['$categoryDishes', '$subCategoryDishes'] },
+          results: {
+            $concatArrays: ['$categoryDishes', '$subCategoryDishes']
+          },
         },
       },
     ]);
 
     const results = searchResults[0]?.results || [];
+    
+    // Remove duplicates based on _id
+    const uniqueResults = Array.from(new Set(results.map(r => r._id)))
+      .map(_id => results.find(r => r._id === _id));
 
-    if (results.length === 0) {
-      return res.status(404).json({ message: 'No matching dishes found.' });
+    if (uniqueResults.length === 0) {
+      return res.status(404).json({ 
+        status: false,
+        message: 'No matching dishes found.' 
+      });
     }
 
-    return res.status(200).json({ results });
+    return res.status(200).json({ 
+      status: true,
+      results: uniqueResults 
+    });
+    
   } catch (error) {
     console.error('Error during dish search:', error);
     return res.status(500).json({
+      status: false,
       message: 'An error occurred while searching for dishes.',
       error: error.message,
     });
