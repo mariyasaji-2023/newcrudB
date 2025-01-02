@@ -8,7 +8,7 @@ const servingInfoShema = new mongoose.Schema(
         type: String,
         required: true,
       },
-      price: {
+      Url: {
         type: String,
         required: false,
       },

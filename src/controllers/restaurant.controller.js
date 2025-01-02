@@ -508,7 +508,7 @@ export const createDish = async (req, res) => {
       servingInfos: servingInfos.map((info) => ({
         servingInfo: {
           size: info.size,
-          price: info.price,
+          Url: info.Url,
           nutritionFacts: {
             calories: { value: info.nutritionFacts.calories, unit: 'cal' },
             protein: { value: info.nutritionFacts.protein, unit: 'g' },
@@ -635,7 +635,7 @@ export const editDish = async (req, res) => {
       servingInfos: servingInfos.map((info) => ({
         servingInfo: {
           size: info.size,
-          price: info.price,
+          Url: info.Url,
           nutritionFacts: {
             calories: { value: info.nutritionFacts.calories, unit: 'cal' },
             protein: { value: info.nutritionFacts.protein, unit: 'g' },
