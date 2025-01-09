@@ -10,7 +10,7 @@ import fs from 'fs/promises'; // For handling file operations
 
 export const createRestaurant = async (req, res) => {
   try {
-    const { restaurantName } = req.body;
+    const { restaurantName, logo } = req.body;
 
     if (!restaurantName) {
       return res.status(400).json({ message: 'Name is required' });
@@ -23,7 +23,10 @@ export const createRestaurant = async (req, res) => {
 
     let logoPath = DEFAULT_LOGO_PATH;
 
-    if (req.file) {
+    // Check if logo is a URL or if there's a file upload
+    if (logo && (logo.startsWith('http://') || logo.startsWith('https://'))) {
+      logoPath = logo; // Use the URL directly
+    } else if (req.file) {
       logoPath = req.file.path.replace(/\\/g, '/').replace('public', '');
     }
 
@@ -108,35 +111,27 @@ export const deleteRestaurant = async (req, res) => {
 //================================================================
 //edit restaurant
 //================================================================
-
 export const editRestaurant = async (req, res) => {
   try {
-    const { restaurantId } = req.params; // Assuming the restaurant's ID is passed in the URL
-    console.log(restaurantId);
+    const { restaurantId } = req.params;
+    const { restaurantName, logo } = req.body;
 
-    const { restaurantName } = req.body;
-
-    // Find the restaurant by ID
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
 
-    // Update the restaurant name if provided
     if (restaurantName) {
       restaurant.restaurantName = restaurantName;
     }
 
-    let logoPath = restaurant.logo; // Keep the existing logo if not updated
-
-    // If a new logo is uploaded, update the logo path
-    if (req.file) {
-      logoPath = req.file.path.replace(/\\/g, '/').replace('public', '');
+    // Handle logo update
+    if (logo && (logo.startsWith('http://') || logo.startsWith('https://'))) {
+      restaurant.logo = logo; // Use the URL directly
+    } else if (req.file) {
+      restaurant.logo = req.file.path.replace(/\\/g, '/').replace('public', '');
     }
 
-    restaurant.logo = logoPath;
-
-    // Save the updated restaurant
     const updatedRestaurant = await restaurant.save();
 
     return res.status(200).json({
@@ -151,7 +146,6 @@ export const editRestaurant = async (req, res) => {
     });
   }
 };
-
 //================================================================
 // to show all the restaurants
 //================================================================
