@@ -149,7 +149,6 @@ export const editRestaurant = async (req, res) => {
 //================================================================
 // to show all the restaurants
 //================================================================
-
 export const allRestaurants = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
@@ -160,19 +159,39 @@ export const allRestaurants = async (req, res) => {
     const searchQuery = req.query.search || '';
 
     // Create a search filter
-    const searchFilter = searchQuery
-      ? { restaurantName: { $regex: searchQuery, $options: 'i' } }
-      : {};
+    let searchFilter = {};
+    
+    // Only apply filter if searchQuery exists (saves processing when no search needed)
+    if (searchQuery) {
+      searchFilter = { 
+        restaurantName: { $regex: searchQuery, $options: 'i' } 
+      };
+    }
 
-    // Fetch restaurants with pagination, search, and sorting by updatedAt (descending)
-    const restaurants = await Restaurant.find(searchFilter)
-      .skip(skip)
-      .limit(limit)
-      .sort({ updatedAt: -1, createdAt: -1 }); // Sort by updatedAt first, then createdAt
+    // Define projection to return only needed fields
+    const projection = {
+      restaurantName: 1,
+      logo: 1,
+      createdAt: 1,
+      updatedAt: 1
+    };
 
-    // Count total restaurants matching the search filter
-    const totalRestaurants = await Restaurant.countDocuments(searchFilter);
+    // Use Promise.all to run queries in parallel
+    const [restaurants, totalRestaurants] = await Promise.all([
+      Restaurant.find(searchFilter, projection)
+        .skip(skip)
+        .limit(limit)
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .lean(), // Use lean() to get plain JS objects instead of Mongoose documents
+      
+      // Use countDocuments instead of count (faster)
+      Restaurant.countDocuments(searchFilter)
+    ]);
+
     const totalPages = Math.ceil(totalRestaurants / limit);
+
+    // Set Cache-Control header to allow browser caching
+    res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
 
     return res.status(200).json({
       currentPage: page,
@@ -185,6 +204,7 @@ export const allRestaurants = async (req, res) => {
     res.status(500).json({ message: 'Error fetching restaurants' });
   }
 };
+
 
 //================================================================
 // to create categories
@@ -667,106 +687,155 @@ export const editDish = async (req, res) => {
 
 export const allDishes = async (req, res) => {
   const { restaurantId } = req.params;
-  console.log('Restaurant ID:', restaurantId); // Debugging log
+  // Extract pagination parameters from query
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
 
   if (!restaurantId) {
     return res.status(400).json({ message: 'Restaurant ID is required' });
   }
 
   try {
-    // Find the restaurant by ID
-    const restaurant = await Restaurant.findById(restaurantId);
-    console.log('Restaurant object:', restaurant);
-    console.log('Restaurant Name:', restaurant.restaurantName);
+    // Use projection to fetch only needed fields
+    const restaurant = await Restaurant.findById(
+      restaurantId,
+      'restaurantName categories'
+    ).lean();
 
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
 
-    const categories = [];
+    // Process categories with map instead of forEach
+    const categories = restaurant.categories.map((category) => {
+      const subCategories = (category.subCategories || []).map((subCategory) => ({
+        subCategoryId: subCategory._id,
+        subCategoryName: subCategory.subCategoryName,
+      }));
 
-    restaurant.categories.forEach((category) => {
-      const subCategories =
-        category.subCategories && Array.isArray(category.subCategories)
-          ? category.subCategories.map((subCategory) => ({
-            subCategoryId: subCategory._id,
-            subCategoryName: subCategory.subCategoryName,
-          }))
-          : [];
-
-      categories.push({
+      return {
         categoryId: category._id,
         categoryName: category.categoryName,
         subCategories: subCategories,
-      });
+      };
     });
 
-    const dishes = [];
-    restaurant.categories.forEach((category) => {
-      if (category?.dishes && Array.isArray(category.dishes)) {
-        category.dishes.forEach((dish) => {
-          dishes.push({
-            ...dish.toObject(),
+    // Pre-allocate array capacity for better performance
+    const allDishes = [];
+    
+    // Use flat arrays and single-pass processing
+    for (const category of restaurant.categories) {
+      // Process category dishes
+      if (category.dishes && Array.isArray(category.dishes)) {
+        for (const dish of category.dishes) {
+          allDishes.push({
+            ...dish,
             restaurantName: restaurant.restaurantName,
             categoryId: category._id,
             categoryName: category.categoryName,
             subCategoryName: null,
           });
-        });
+        }
       }
 
-      if (category?.subCategories && Array.isArray(category.subCategories)) {
-        category.subCategories.forEach((subCategory) => {
-          if (subCategory?.dishes && Array.isArray(subCategory.dishes)) {
-            subCategory.dishes.forEach((dish) => {
-              dishes.push({
-                ...dish.toObject(),
+      // Process subcategory dishes
+      if (category.subCategories && Array.isArray(category.subCategories)) {
+        for (const subCategory of category.subCategories) {
+          if (subCategory.dishes && Array.isArray(subCategory.dishes)) {
+            for (const dish of subCategory.dishes) {
+              allDishes.push({
+                ...dish,
                 restaurantName: restaurant.restaurantName,
                 categoryId: category._id,
                 categoryName: category.categoryName,
                 subCategoryId: subCategory._id,
                 subCategoryName: subCategory.subCategoryName,
               });
-            });
+            }
           }
-        });
+        }
       }
-    });
-
-    // Sort dishes by updatedAt (most recent first)
-    dishes.sort((a, b) => {
-      const dateA = new Date(a.updatedAt);
-      const dateB = new Date(b.updatedAt);
-      return dateB - dateA; // Descending order
-    });
-
-    if (dishes.length === 0) {
-      return res.status(200).json({
-        message: 'No dishes found for this restaurant',
-        restaurant: {
-          id: restaurant._id,
-          name: restaurant.restaurantName, // Explicitly set name here
-        },
-        dishes,
-        categories,
-      });
     }
 
-    // Return the fetched dishes along with restaurant info
-    res.status(200).json({
-      message: 'Dishes fetched successfully',
+    // Sort dishes
+    allDishes.sort((a, b) => {
+      // Use timestamp comparison instead of Date objects for better performance
+      return b.updatedAt - a.updatedAt;
+    });
+
+    // Count total dishes
+    const totalDishCount = allDishes.length;
+    
+    // Apply pagination
+    const totalPages = Math.ceil(totalDishCount / limit);
+    const dishes = allDishes.slice(skip, skip + limit);
+
+    // Set Cache-Control header to allow browser caching
+    res.set('Cache-Control', 'public, max-age=120'); // Cache for 2 minutes
+
+    // Return the response with pagination metadata
+    return res.status(200).json({
+      message: dishes.length ? 'Dishes fetched successfully' : 'No dishes found for this restaurant',
       restaurant: {
         id: restaurant._id,
-        name: restaurant.restaurantName, // Explicitly set name here
+        name: restaurant.restaurantName,
       },
       dishes,
       categories,
+      pagination: {
+        totalDishes: totalDishCount,
+        totalPages,
+        currentPage: page,
+        limit
+      }
     });
+    
   } catch (error) {
     console.error('Error fetching dishes:', error.message);
     res.status(500).json({ error: 'Server error while fetching dishes' });
   }
 };
+// Add a separate endpoint for just the dish count
+export const getDishCount = async (req, res) => {
+  const { restaurantId } = req.params;
+
+  if (!restaurantId) {
+    return res.status(400).json({ message: 'Restaurant ID is required' });
+  }
+
+  try {
+    const restaurant = await Restaurant.findById(restaurantId).lean();
+    
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+    
+    let dishCount = 0;
+    
+    // Count dishes in each category
+    for (const category of restaurant.categories || []) {
+      dishCount += (category.dishes?.length || 0);
+      
+      // Count dishes in subcategories
+      for (const subCategory of category.subCategories || []) {
+        dishCount += (subCategory.dishes?.length || 0);
+      }
+    }
+    
+    // Cache dish count longer since it changes less frequently
+    res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+    
+    return res.status(200).json({
+      dishCount
+    });
+    
+  } catch (error) {
+    console.error('Error counting dishes:', error.message);
+    res.status(500).json({ error: 'Server error while counting dishes' });
+  }
+};
+
 
 export const countDishesInRestaurant = async (req, res) => {
   const { restaurantId } = req.params;
